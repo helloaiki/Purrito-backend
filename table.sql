@@ -5,12 +5,13 @@ CREATE DATABASE purrito;
 USE purrito;
 
 --user table
+USE purrito;
 CREATE TABLE user
 (
     user_id INT AUTO_INCREMENT,
     user_name VARCHAR(30) NOT NULL,
     email_address VARCHAR(60) UNIQUE,
-    password VARCHAR(50),
+    password VARCHAR(60),
     phone_number CHAR(11),
     PRIMARY KEY(user_id)
 );
@@ -21,19 +22,21 @@ CREATE TABLE user
 USE purrito;
 CREATE TABLE restaurant
 (
-    res_id INT AUTO_INCREMENT,
+    restaurant_id INT AUTO_INCREMENT,
     res_name VARCHAR(30) NOT NULL,
     email_address VARCHAR(50) UNIQUE,
-    password VARCHAR(50),
+    password VARCHAR(60),
     street VARCHAR(50),
     city VARCHAR(20),
     postal_code CHAR(4),
     building_name VARCHAR(50),
     food_program BOOLEAN DEFAULT 0,
     res_image_path VARCHAR(512),
-    PRIMARY KEY(res_id)
+    total_sales INT,
+    description VARCHAR(20),
+    restaurant_type VARCHAR(20),
+    PRIMARY KEY(restaurant_id)
 );
-
 
 --driver table
 USE purrito;
@@ -42,7 +45,7 @@ CREATE TABLE driver
     driver_id INT AUTO_INCREMENT,
     user_name VARCHAR(30) NOT NULL,
     email_address VARCHAR(60) UNIQUE,
-    password VARCHAR(50),
+    password VARCHAR(60),
     verification_method VARCHAR(100),
     phone_number CHAR(11),
     PRIMARY KEY(driver_id)
@@ -56,7 +59,7 @@ CREATE TABLE organization
     org_id INT AUTO_INCREMENT,
     org_name VARCHAR(30) NOT NULL,
     email_address VARCHAR(50) UNIQUE,
-    password VARCHAR(50),
+    password VARCHAR(60),
     street VARCHAR(50),
     city VARCHAR(20),
     postal_code CHAR(4),
@@ -74,22 +77,24 @@ CREATE TABLE contact_restaurant
     res_id INT ,
     phone_number CHAR(11),
     PRIMARY KEY(res_id,phone_number),
-    FOREIGN KEY(res_id) REFERENCES restaurant(res_id) ON DELETE CASCADE
+    FOREIGN KEY(res_id) REFERENCES restaurant(restaurant_id) ON DELETE CASCADE
 );
 
 --menu table
 
 USE purrito;
-CREATE TABLE menu_item
+CREATE TABLE Restaurant_Menu
 (
     res_id INT,
     food_id INT AUTO_INCREMENT,
     name VARCHAR(50),
     course_name VARCHAR(20),
     price DECIMAL(6,2),
+    is_available BOOLEAN DEFAULT 0,
+    quantity_sold INT,
     food_image_path VARCHAR(512),
     PRIMARY KEY(food_id),
-    FOREIGN KEY(res_id) REFERENCES restaurant(res_id) ON DELETE CASCADE
+    FOREIGN KEY(res_id) REFERENCES restaurant(restaurant_id) ON DELETE CASCADE
 );
 
 
@@ -112,8 +117,8 @@ CREATE TABLE food_characteristic
     food_id INT ,
     trait VARCHAR(50),
     PRIMARY KEY(res_id,food_id,trait),
-    FOREIGN KEY(res_id) REFERENCES restaurant(res_id) ON DELETE CASCADE,
-    FOREIGN KEY(food_id) REFERENCES menu_item(food_id) ON DELETE CASCADE
+    FOREIGN KEY(res_id) REFERENCES restaurant(restaurant_id) ON DELETE CASCADE,
+    FOREIGN KEY(food_id) REFERENCES Restaurant_Menu(food_id) ON DELETE CASCADE
 );
 
 --order table between restaurant and user
@@ -123,11 +128,10 @@ CREATE TABLE order_res_user
     order_id INT AUTO_INCREMENT,
     user_id INT,
     res_id INT ,
-    quantity INT,
     price DECIMAL(7,2),
     PRIMARY KEY(order_id),
     FOREIGN KEY(user_id) REFERENCES user(user_id) ON DELETE CASCADE,
-    FOREIGN KEY(res_id) REFERENCES restaurant(res_id) ON DELETE CASCADE
+    FOREIGN KEY(res_id) REFERENCES restaurant(restaurant_id) ON DELETE CASCADE
 );
 
 
@@ -137,11 +141,12 @@ CREATE TABLE Order_item
 (
     order_id INT,
     food_id INT,
+    quantity INT,
     PRIMARY KEY(order_id,food_id),
     FOREIGN KEY(order_id) REFERENCES order_res_user(order_id) ON DELETE CASCADE,
-    FOREIGN KEY(food_id) REFERENCES menu_item(food_id) ON DELETE CASCADE
+    FOREIGN KEY(food_id) REFERENCES Restaurant_Menu(food_id) ON DELETE CASCADE
 
-)
+);
 
 --rating for restaurant for particular order
 
@@ -155,7 +160,7 @@ CREATE TABLE rating_restaurant
     comment VARCHAR(30),
     PRIMARY KEY(user_id,res_id,order_id),
     FOREIGN KEY(user_id) REFERENCES user(user_id) ON DELETE CASCADE,
-    FOREIGN KEY(res_id) REFERENCES restaurant(res_id) ON DELETE CASCADE,
+    FOREIGN KEY(res_id) REFERENCES restaurant(restaurant_id) ON DELETE CASCADE,
     FOREIGN KEY(order_id) REFERENCES order_res_user(order_id) ON DELETE CASCADE
 );
 
@@ -197,8 +202,8 @@ CREATE TABLE leftover_available
     food_id INT,
     made_on DATE ,
     PRIMARY KEY(res_id,food_id,made_on),
-    FOREIGN KEY(res_id) REFERENCES restaurant(res_id) ON DELETE CASCADE,
-    FOREIGN KEY(food_id) REFERENCES menu_item(food_id) ON DELETE CASCADE
+    FOREIGN KEY(res_id) REFERENCES restaurant(restaurant_id) ON DELETE CASCADE,
+    FOREIGN KEY(food_id) REFERENCES Restaurant_Menu(food_id) ON DELETE CASCADE
 );
 
 --table for orgs taking the food
@@ -211,8 +216,8 @@ CREATE TABLE leftover_taken
     res_id INT,
     made_on DATE,
     PRIMARY KEY(org_id,food_id,res_id),
-    FOREIGN KEY(res_id) REFERENCES restaurant(res_id) ON DELETE CASCADE,
-    FOREIGN KEY(food_id) REFERENCES menu_item(food_id)ON DELETE CASCADE,
+    FOREIGN KEY(res_id) REFERENCES restaurant(restaurant_id) ON DELETE CASCADE,
+    FOREIGN KEY(food_id) REFERENCES Restaurant_Menu(food_id)ON DELETE CASCADE,
     FOREIGN KEY(org_id) REFERENCES organization(org_id) ON DELETE CASCADE
 );
 
