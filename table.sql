@@ -222,6 +222,22 @@ CREATE TABLE leftover_taken
 );
 
 
+USE purrito;
+ALTER TABLE order_res_user
+ADD payment_method VARCHAR(20)
+
+
+USE purrito;
+CREATE TABLE payment_credentials
+(
+    user_id INT,
+    payment_method VARCHAR(30),
+    payment_method_information VARCHAR(100),
+    PRIMARY KEY(user_id,payment_method),
+    FOREIGN KEY(user_id) REFERENCES user(user_id) ON DELETE CASCADE
+)
+
+
 
 
 
