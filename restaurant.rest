@@ -1,0 +1,27 @@
+### Restaurant Signup
+POST http://localhost:5003/auth/restaurant/signup
+Content-Type: application/json
+
+{
+  "name": "Witches Brew",
+  "email": "xyz@example.com",
+  "password": "12345678",
+  "street": "Elephant road",
+  "city": "Dhaka",
+  "postalcode": "1207",
+  "buildingname": "New Tower",
+  "foodprogram": "YES",
+  "resimagepath": "/images/witchesBrew.png",
+  "description": "Drinks",
+  "restauranttype": "Versatile"
+}
+
+### Restaurant Login
+POST http://localhost:5003/auth/restaurant/login
+Content-Type: application/json
+
+{
+  "email": "xyz@example.com",
+  "password": "12345678"
+}
+

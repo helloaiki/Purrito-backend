@@ -2,7 +2,9 @@ import express from 'express'
 import path,{dirname} from 'path'
 import { fileURLToPath } from 'url'
 import authRoutes from './routes/authRoutes.js'
+//import restaurantRoutes from './routes/restaurantRoutes.js'
 import cors from 'cors';
+import authMiddleWare from './middleware/authMiddleware.js';
 
 const app=express()
 
@@ -21,6 +23,7 @@ app.use(express.json());
 
 //routes
 app.use('/auth',authRoutes)
+//app.use('/restaurant/tasks',authMiddleWare,restaurantRoutes)
 
 app.listen(PORT,()=>{
     console.log(`server has started on port: ${PORT}`);
