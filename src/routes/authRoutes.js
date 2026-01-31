@@ -56,6 +56,7 @@ router.post('/driver/login',async(req,res)=>{
        
 })
 
+<<<<<<< HEAD
 //restaurant sign up
 router.post('/restaurant/signup',async(req,res)=>{
     const{name,email,password,street,city,postalcode,buildingname,foodprogram,resimagepath,description,restauranttype}=req.body
@@ -108,5 +109,62 @@ router.post('/restaurant/login',async(req,res)=>{
 })
 
 
+=======
+
+router.post('/user/signup',async(req, res)=>{
+    const { name, email, password, contact }= req.body;
+    const hashedPassword = bcrypt.hashSync(password,8);
+
+    try{
+        const insertUser=`INSERT INTO  user (user_name, email_address, password, phone_number) VALUES (?, ?, ?, ?)`;
+
+        const [result]= await db.execute(insertUser, [
+            name,
+            email,
+            hashedPassword,
+            contact
+        ]);
+
+        const token= jwt.sign(
+            { userId: result.insertId },
+            process.env.MYSECRETKEY,
+            { expiresIn: '24h'}
+        );
+        return res.status(201).json({ token });
+    } catch(err){
+        return res.status(500).json({ message: err.message });
+    }
+});
+
+router.post('/user/login',async(req, res)=>{
+    const { email, password } = req.body;
+
+    try{
+        const getUser = `SELECT * FROM user WHERE email_address = ?`;
+        const [result] = await db.execute(getUser, [email]);
+
+        if(result.length === 0){
+            return res.status(401).json({ message: 'User not found' });
+        }
+
+        const user = result[0];
+        const doesPasswordMatch = await bcrypt.compare(password, user.password);
+
+        if(!doesPasswordMatch){
+            return res.status(401).json({ message: 'Incorrect password' });
+        }
+
+        const token = jwt.sign(
+            { userId: user.user_id },
+            process.env.MYSECRETKEY,
+            { expiresIn: '24h' }
+        );
+
+        return res.status(200).json({ token });
+    } catch(err){
+        return res.status(500).json({ message: err.message });
+    }
+});
+>>>>>>> 98e4f2e0f4a3b656f01a14696fc763c35b02d55a
 
 export default router
