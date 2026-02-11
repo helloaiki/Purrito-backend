@@ -1,30 +1,33 @@
 import express from 'express'
-import path,{dirname} from 'path'
+import path, { dirname } from 'path'
 import { fileURLToPath } from 'url'
 import authRoutes from './routes/authRoutes.js'
-//import restaurantRoutes from './routes/restaurantRoutes.js'
+import restaurantRoutes from './routes/restaurantRoutes.js'
+import userRoutes from './routes/userRoutes.js'
+import organizationRoutes from './routes/organizationRoutes.js'
 import cors from 'cors';
-import authMiddleWare from './middleware/authMiddleware.js';
 
-const app=express()
+const app = express()
 
-const PORT=process.env.PORT||5003
+const PORT = process.env.PORT || 5003
 
 //get file
-const __filename=fileURLToPath(import.meta.url)
+const __filename = fileURLToPath(import.meta.url)
 //get directory
-const __dirname=dirname(__filename);
+const __dirname = dirname(__filename);
 
-app.use(express.static(path.join(__dirname,'../public')))
+app.use(express.static(path.join(__dirname, '../public')))
 
 app.use(cors())
 app.use(express.json());
 
 
 //routes
-app.use('/auth',authRoutes)
-//app.use('/restaurant/tasks',authMiddleWare,restaurantRoutes)
+app.use('/auth', authRoutes)
+app.use('/api/restaurant', restaurantRoutes)
+app.use('/api/user', userRoutes)
+app.use('/api/organization', organizationRoutes)
 
-app.listen(PORT,()=>{
+app.listen(PORT, () => {
     console.log(`server has started on port: ${PORT}`);
 })

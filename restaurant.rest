@@ -3,8 +3,8 @@ POST http://localhost:5003/auth/restaurant/signup
 Content-Type: application/json
 
 {
-  "name": "Witches Brew",
-  "email": "xyz@example.com",
+  "name": "Sultan's Dine",
+  "email": "abc@example.com",
   "password": "12345678",
   "street": "Elephant road",
   "city": "Dhaka",
@@ -12,7 +12,7 @@ Content-Type: application/json
   "buildingname": "New Tower",
   "foodprogram": "YES",
   "resimagepath": "/images/witchesBrew.png",
-  "description": "Drinks",
+  "description": "Bengali ",
   "restauranttype": "Versatile"
 }
 

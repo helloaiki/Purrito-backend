@@ -1,0 +1,22 @@
+### POST ORGANIZATION SIGNUP
+POST http://localhost:5003/auth/organization/signup
+Content-Type: application/json
+
+{
+    "name": "Bidyanondo Foundation",
+    "email": "bidyanondo@gmail.com",
+    "password": "123123",
+    "street": "Elephant road",
+    "city": "Dhaka",
+    "postalcode": "1207",
+    "buildingname": "New Tower",
+}
+
+### POST ORGANIZATION LOGIN
+POST http://localhost:5003/auth/organization/login
+Content-Type: application/json
+
+{
+    "email":"bidyanondo@gmail.com",
+    "password":"123123"
+}

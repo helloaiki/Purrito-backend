@@ -72,11 +72,12 @@ CREATE TABLE organization
 
 
 USE purrito;
+drop table contact_restaurant
 CREATE TABLE contact_restaurant
 (
     res_id INT ,
     phone_number CHAR(11),
-    PRIMARY KEY(res_id,phone_number),
+    PRIMARY KEY(phone_number),
     FOREIGN KEY(res_id) REFERENCES restaurant(restaurant_id) ON DELETE CASCADE
 );
 
@@ -201,25 +202,15 @@ CREATE TABLE leftover_available
     res_id INT,
     food_id INT,
     made_on DATE ,
+    quantity INT,
+    taken_on DATE NULL,
+    org_id INT NULL,
     PRIMARY KEY(res_id,food_id,made_on),
     FOREIGN KEY(res_id) REFERENCES restaurant(restaurant_id) ON DELETE CASCADE,
-    FOREIGN KEY(food_id) REFERENCES Restaurant_Menu(food_id) ON DELETE CASCADE
+    FOREIGN KEY(food_id) REFERENCES Restaurant_Menu(food_id) ON DELETE CASCADE,
+    FOREIGN KEY(org_id) REFERENCES organization(org_id) ON DELETE CASCADE   
 );
 
---table for orgs taking the food
-
-USE purrito;
-CREATE TABLE leftover_taken
-(
-    org_id INT,
-    food_id INT,
-    res_id INT,
-    made_on DATE,
-    PRIMARY KEY(org_id,food_id,res_id),
-    FOREIGN KEY(res_id) REFERENCES restaurant(restaurant_id) ON DELETE CASCADE,
-    FOREIGN KEY(food_id) REFERENCES Restaurant_Menu(food_id)ON DELETE CASCADE,
-    FOREIGN KEY(org_id) REFERENCES organization(org_id) ON DELETE CASCADE
-);
 
 
 USE purrito;
@@ -237,6 +228,15 @@ CREATE TABLE payment_credentials
     FOREIGN KEY(user_id) REFERENCES user(user_id) ON DELETE CASCADE
 )
 
+USE purrito;
+SELECT * FROM restaurant;
+
+
+USE purrito;
+SELECT * FROM user;
+
+USE purrito;
+SELECT * FROM driver;
 
 
 
