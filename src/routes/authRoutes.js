@@ -7,14 +7,14 @@ const router=express.Router()
 
 //signin a new user//via the auth/driver/signup//POST
 router.post('/driver/signup',async(req,res)=>{
-    const{name,email,password,contact,verification}=req.body
+    const{name,email,password,contact,verification,joinDate}=req.body
     const hashedPassword=bcrypt.hashSync(password,8)
     console.log(password,hashedPassword)
 
     try
     {
-        const insertDriver=`INSERT INTO driver(user_name,email_address,password,verification_method,phone_number) VALUES(?,?,?,?,?)`
-        const [result]=await db.execute(insertDriver,[name,email,hashedPassword,verification,contact])
+        const insertDriver=`INSERT INTO driver(user_name,email_address,password,verification_method,phone_number,join_date) VALUES(?,?,?,?,?,?)`
+        const [result]=await db.execute(insertDriver,[name,email,hashedPassword,verification,contact,joinDate])
         console.log(result.insertId)
         const token=jwt.sign({id:result.insertId},process.env.MYSECRETKEY,{expiresIn:'24h'})
         return res.status(201).json({token:token})

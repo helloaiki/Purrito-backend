@@ -57,4 +57,10 @@ router.post('/leftover', authMiddleWare, async (req, res) => {
     }
 });
 
+
+
+//these are related to restaurant only
+
+
+
 export default router

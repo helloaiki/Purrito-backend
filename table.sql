@@ -1,8 +1,10 @@
 --create a database for project
 CREATE DATABASE purrito;
 
+
 --Uses purrtio db for storage
 USE purrito;
+
 
 --user table
 USE purrito;
@@ -47,6 +49,7 @@ CREATE TABLE driver
     password VARCHAR(60),
     verification_method VARCHAR(100),
     phone_number CHAR(11),
+    join_date DATE,
     PRIMARY KEY(driver_id)
 );
 
@@ -71,6 +74,7 @@ CREATE TABLE driver_income (
     driver_id INT,
     payment DECIMAL(7,2),
     payment_date DATE,
+    has_delivered BOOLEAN,
     PRIMARY KEY(order_id, driver_id),
     FOREIGN KEY(order_id) REFERENCES orders(order_id) ON DELETE CASCADE,
     FOREIGN KEY(driver_id) REFERENCES driver(driver_id) ON DELETE CASCADE
@@ -154,6 +158,9 @@ CREATE TABLE orders(
   restaurant_id INT,
   driver_id INT,
   price DECIMAL(6,2),
+  delivery_address VARCHAR(255),
+  delivery_lat DECIMAL(10,8),
+  delivery_lng DECIMAL(11,8),
   payment_method VARCHAR(20),
   status ENUM('WAITING','PLACED','PREPARING','PICKED_UP','DELIVERED','REJECTED') DEFAULT 'WAITING',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
