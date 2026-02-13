@@ -32,9 +32,8 @@ CREATE TABLE restaurant
     building_name VARCHAR(50),
     food_program BOOLEAN DEFAULT 0,
     res_image_path VARCHAR(512),
-    total_sales INT,
-    description VARCHAR(20),
-    restaurant_type VARCHAR(20),
+    description VARCHAR(100),
+    restaurant_type VARCHAR(50),
     PRIMARY KEY(restaurant_id)
 );
 
@@ -49,6 +48,32 @@ CREATE TABLE driver
     verification_method VARCHAR(100),
     phone_number CHAR(11),
     PRIMARY KEY(driver_id)
+);
+
+--restaurant income table
+
+USE purrito;
+CREATE TABLE restaurant_income
+(
+    order_id INT,
+    restaurant_id INT,
+    payment DECIMAL(7,2),
+    payment_date DATE,
+    PRIMARY KEY(order_id,restaurant_id),
+    FOREIGN KEY(order_id) REFERENCES orders(order_id) ON DELETE CASCADE,
+    FOREIGN KEY(restaurant_id) REFERENCES restaurant(restaurant_id) ON DELETE CASCADE
+);
+
+--driver income table
+USE purrito;
+CREATE TABLE driver_income (
+    order_id INT,
+    driver_id INT,
+    payment DECIMAL(7,2),
+    payment_date DATE,
+    PRIMARY KEY(order_id, driver_id),
+    FOREIGN KEY(order_id) REFERENCES orders(order_id) ON DELETE CASCADE,
+    FOREIGN KEY(driver_id) REFERENCES driver(driver_id) ON DELETE CASCADE
 );
 
 --organizations for donation acceptance table
@@ -72,7 +97,6 @@ CREATE TABLE organization
 
 
 USE purrito;
-drop table contact_restaurant
 CREATE TABLE contact_restaurant
 (
     res_id INT ,
@@ -124,27 +148,34 @@ CREATE TABLE food_characteristic
 
 --order table between restaurant and user
 USE purrito;
-CREATE TABLE order_res_user
-(
-    order_id INT AUTO_INCREMENT,
-    user_id INT,
-    res_id INT ,
-    price DECIMAL(7,2),
-    PRIMARY KEY(order_id),
-    FOREIGN KEY(user_id) REFERENCES user(user_id) ON DELETE CASCADE,
-    FOREIGN KEY(res_id) REFERENCES restaurant(restaurant_id) ON DELETE CASCADE
+CREATE TABLE orders(
+  order_id INT AUTO_INCREMENT,
+  user_id INT,
+  restaurant_id INT,
+  driver_id INT,
+  price DECIMAL(6,2),
+  payment_method VARCHAR(20),
+  status ENUM('WAITING','PLACED','PREPARING','PICKED_UP','DELIVERED','REJECTED') DEFAULT 'WAITING',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  rejection_reason VARCHAR(255) NULL,
+  PRIMARY KEY(order_id),
+  FOREIGN KEY(user_id) REFERENCES user(user_id) ON DELETE SET NULL,
+  FOREIGN KEY(restaurant_id) REFERENCES restaurant(restaurant_id) ON DELETE SET NULL,
+  FOREIGN KEY(driver_id) REFERENCES driver(driver_id) ON DELETE SET NULL
 );
+
 
 
 --order and menu item table
 USE purrito;
-CREATE TABLE Order_item
+CREATE TABLE order_item
 (
     order_id INT,
     food_id INT,
     quantity INT,
     PRIMARY KEY(order_id,food_id),
-    FOREIGN KEY(order_id) REFERENCES order_res_user(order_id) ON DELETE CASCADE,
+    FOREIGN KEY(order_id) REFERENCES orders(order_id) ON DELETE CASCADE,
     FOREIGN KEY(food_id) REFERENCES Restaurant_Menu(food_id) ON DELETE CASCADE
 
 );
@@ -158,26 +189,16 @@ CREATE TABLE rating_restaurant
     res_id INT,
     order_id INT,
     rating INT,
-    comment VARCHAR(30),
+    comment VARCHAR(100),
     PRIMARY KEY(user_id,res_id,order_id),
     FOREIGN KEY(user_id) REFERENCES user(user_id) ON DELETE CASCADE,
     FOREIGN KEY(res_id) REFERENCES restaurant(restaurant_id) ON DELETE CASCADE,
-    FOREIGN KEY(order_id) REFERENCES order_res_user(order_id) ON DELETE CASCADE
+    FOREIGN KEY(order_id) REFERENCES orders(order_id) ON DELETE CASCADE
 );
 
 --order table for showing the current status of order
 --can have driver column null
 
-USE purrito;
-CREATE TABLE order_state
-(
-    order_id INT,
-    driver_id INT,
-    order_status VARCHAR(10),
-    PRIMARY KEY(order_id),
-    FOREIGN KEY(order_id) REFERENCES order_res_user(order_id) ON DELETE CASCADE,
-    FOREIGN KEY(driver_id)REFERENCES driver(driver_id) ON DELETE SET NULL
-);
 
 --table for rating driver based on an order
 
@@ -189,7 +210,7 @@ CREATE TABLE rating_driver
     driver_id INT,
     rating INT,
     PRIMARY KEY(order_id),
-    FOREIGN KEY(order_id) REFERENCES order_res_user(order_id) ON DELETE CASCADE,
+    FOREIGN KEY(order_id) REFERENCES orders(order_id) ON DELETE CASCADE,
     FOREIGN KEY(driver_id)REFERENCES driver(driver_id) ON DELETE CASCADE,
     FOREIGN KEY(user_id) REFERENCES user(user_id) ON DELETE SET NULL
 );
@@ -211,11 +232,6 @@ CREATE TABLE leftover_available
     FOREIGN KEY(org_id) REFERENCES organization(org_id) ON DELETE CASCADE   
 );
 
-
-
-USE purrito;
-ALTER TABLE order_res_user
-ADD payment_method VARCHAR(20)
 
 
 USE purrito;
