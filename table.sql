@@ -62,6 +62,7 @@ CREATE TABLE restaurant_income
     restaurant_id INT,
     payment DECIMAL(7,2),
     payment_date DATE,
+    has_delivered BOOLEAN DEFAULT 0,
     PRIMARY KEY(order_id,restaurant_id),
     FOREIGN KEY(order_id) REFERENCES orders(order_id) ON DELETE CASCADE,
     FOREIGN KEY(restaurant_id) REFERENCES restaurant(restaurant_id) ON DELETE CASCADE
@@ -74,7 +75,7 @@ CREATE TABLE driver_income (
     driver_id INT,
     payment DECIMAL(7,2),
     payment_date DATE,
-    has_delivered BOOLEAN,
+    has_delivered BOOLEAN DEFAULT FALSE,
     PRIMARY KEY(order_id, driver_id),
     FOREIGN KEY(order_id) REFERENCES orders(order_id) ON DELETE CASCADE,
     FOREIGN KEY(driver_id) REFERENCES driver(driver_id) ON DELETE CASCADE
@@ -120,7 +121,7 @@ CREATE TABLE Restaurant_Menu
     course_name VARCHAR(20),
     price DECIMAL(6,2),
     is_available BOOLEAN DEFAULT 0,
-    quantity_sold INT,
+    quantity_sold INT DEFAULT 0,
     food_image_path VARCHAR(512),
     PRIMARY KEY(food_id),
     FOREIGN KEY(res_id) REFERENCES restaurant(restaurant_id) ON DELETE CASCADE
