@@ -3,6 +3,7 @@ import path, { dirname } from 'path'
 import { fileURLToPath } from 'url'
 import authRoutes from './routes/authRoutes.js'
 import restaurantRoutes from './routes/restaurantRoutes.js'
+import driverRoutes from './routes/driverRoutes.js'
 import userRoutes from './routes/userRoutes.js'
 import organizationRoutes from './routes/organizationRoutes.js'
 import cors from 'cors';
@@ -27,6 +28,8 @@ app.use('/auth', authRoutes)
 app.use('/api/restaurant', restaurantRoutes)
 app.use('/api/user', userRoutes)
 app.use('/api/organization', organizationRoutes)
+app.use('/api/driver',driverRoutes)
+
 
 app.listen(PORT, () => {
     console.log(`server has started on port: ${PORT}`);
