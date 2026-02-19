@@ -5,31 +5,30 @@ import authMiddleWare from '../middleware/authMiddleware.js'
 const router = express.Router()
 
 // GET /api/restaurant/menu
-router.get('/menu', async (req, res) => {
-    try {
-        const getMenu = `
-            SELECT rm.*, r.res_name
-            FROM Restaurant_Menu rm
-            JOIN restaurant r ON rm.res_id = r.restaurant_id
-            WHERE rm.is_available = 1
-        `
-        const [menuItems] = await db.execute(getMenu)
-        res.status(200).json(menuItems)
-    } catch (err) {
-        console.error(err)
-        res.status(500).json({ message: 'Error fetching menu' })
-    }
-});
+// router.get('/menu', async (req, res) => {
+//     try {
+//         const getMenu = `
+//             SELECT rm.*, r.res_name
+//             FROM Restaurant_Menu rm
+//             JOIN restaurant r ON rm.res_id = r.restaurant_id
+//         `
+//         const [menuItems] = await db.execute(getMenu)
+//         res.status(200).json(menuItems)
+//     } catch (err) {
+//         console.error(err)
+//         res.status(500).json({ message: 'Error fetching menu' })
+//     }
+// });
 
 
 //is also related to restaurants 
 // GET /api/restaurant/profile
 router.get('/profile', authMiddleWare, async (req, res) => {
-    const resId = req.user.restaurantId || req.user.id;
+    const resId = req.userId
     try {
         const getRes = `
             SELECT restaurant_id, res_name, email_address, street, city, postal_code, 
-                   building_name, food_program, res_image_path, total_sales, description, restaurant_type 
+            building_name, food_program, res_image_path, description, restaurant_type 
             FROM restaurant WHERE restaurant_id = ?`;
         const [restaurant] = await db.execute(getRes, [resId]);
         if (restaurant.length === 0) {
@@ -48,7 +47,7 @@ router.get('/profile', authMiddleWare, async (req, res) => {
 // POST /api/restaurant/leftover
 router.post('/leftover', authMiddleWare, async (req, res) => {
     const { food_id, made_on, quantity } = req.body;
-    const resId = req.user.restaurantId || req.user.id;
+    const resId = req.userId;
     const qty = quantity || 1;
 
     try {
@@ -230,6 +229,268 @@ router.get('/mostordereditem',authMiddleWare,async(req,res)=>{
         const [result] = await db.execute(selectMostPopular, [resId, howMany]);
 
         return res.status(200).json({topItems: result});
+    }
+    catch(err)
+    {
+        return res.status(500).json({message:err.message})
+    }
+})
+
+
+
+router.get('/menu/items',authMiddleWare,async(req,res)=>{
+    const resId=req.userId
+    try
+    {
+        const getAllMenuItems=`SELECT *
+        FROM Restaurant_Menu
+        WHERE res_id=?
+        `
+        const [result] = await db.query(getAllMenuItems, [resId]);
+
+        return res.status(200).json({result});
+    }
+    catch(err)
+    {
+        return res.status(500).json({message:err.message})
+    }
+})
+
+router.get('/menu/item/details',authMiddleWare,async(req,res)=>{
+    const resId=req.userId
+    const {foodId}=req.body
+    try
+    {
+        const getDetailsAboutFoodItem=`
+        SELECT *
+        FROM Restaurant_Menu
+        WHERE res_id=? AND food_id=?
+        `
+        const [result]=await db.query(getDetailsAboutFoodItem,[resId,foodId])
+
+        return res.status(200).json({result})
+    }
+    catch(err)
+    {
+        return res.status(500).json({message:err.message})
+    }
+})
+
+router.put('/menu/item/:id', authMiddleWare, async (req, res) => {
+    const resId = req.userId;         
+    const {foodId} = req.body;
+
+    const allowedFields = [
+        "name",
+        "course_name",
+        "price",
+        "is_available",
+        "food_image_path"
+    ];
+
+    const updates = [];
+    const values = [];
+
+    for (let key of Object.keys(req.body)) 
+    {
+        if (allowedFields.includes(key)) {
+            updates.push(`${key} = ?`);
+            values.push(req.body[key]);
+        }
+    }
+
+    if (updates.length === 0) 
+    {
+        return res.status(400).json({message: "No valid fields provided for update"});
+    }
+
+    const updateQuery = `
+        UPDATE Restaurant_Menu
+        SET ${updates.join(", ")}
+        WHERE food_id = ? AND res_id = ?
+    `;
+
+    values.push(foodId, resId);
+
+    try 
+    {
+        const [result] = await db.query(updateQuery, values);
+
+        if (result.affectedRows === 0) 
+        {
+            return res.status(404).json({message: "Menu item not found or unauthorized"});
+        }
+
+        return res.status(200).json({
+            message: "Menu item updated successfully"
+        });
+
+    } catch (err) 
+    {
+        return res.status(500).json({message: err.message});
+    }
+});
+
+
+// CREATE TABLE rating_restaurant
+// (
+//     user_id INT,
+//     res_id INT,
+//     order_id INT,
+//     rating INT,
+//     comment VARCHAR(100),
+//     PRIMARY KEY(user_id,res_id,order_id),
+//     FOREIGN KEY(user_id) REFERENCES user(user_id) ON DELETE CASCADE,
+//     FOREIGN KEY(res_id) REFERENCES restaurant(restaurant_id) ON DELETE CASCADE,
+//     FOREIGN KEY(order_id) REFERENCES orders(order_id) ON DELETE CASCADE
+// );
+
+
+router.get('/rating', authMiddleWare, async (req, res) => {
+    const resId = req.userId;
+    try 
+    {
+        const getRating = `
+            SELECT ROUND(AVG(rating), 2) AS avg_rating
+            FROM rating_restaurant
+            WHERE res_id = ?
+        `;
+
+        const [result] = await db.query(getRating, [resId]);
+
+        const avgRating = result[0].avg_rating;
+
+        return res.status(200).json({average_rating: avgRating || 0});
+
+    } 
+    catch (err) 
+    {
+        return res.status(500).json({message: err.message});
+    }
+});
+
+
+router.get('/reviews',authMiddleWare,async(req,res)=>{
+    const resId=req.userId
+
+    try
+    {
+        const getReviews=`
+        SELECT r.comment,u.name,r.rating
+        FROM rating_restaurant r
+        JOIN user u ON r.user_id=u.user_id 
+        WHERE res_id=?
+        `
+        const[result]=await db.query(getReviews,[resId])
+
+        return res.status(200).json({result})
+    }
+    catch(err)
+    {
+        return res.status(500).json({message:err.message})
+    }
+})
+
+//gets orders that are waiting which is basically new in our books
+router.get('/orders/new',authMiddleWare,async(req,res)=>{
+    const resId=req.userId
+    try
+    {
+        const getNewOrders=`
+        SELECT order_id
+        FROM orders
+        WHERE restaurant_id=? AND status='PLACED'
+        `
+        const[result]=await db.query(getNewOrders,[resId])
+        return res.status(200).json({result})
+    }
+    catch(err)
+    {
+        return res.status(500).json({message:err.message})
+    }
+})
+
+//gets orders that are being prepared currently
+
+router.get('/orders/ongoing',authMiddleWare,async(req,res)=>{
+    const resId=req.userId
+    try
+    {
+        const getOngoingOrders=`
+        SELECT order_id
+        FROM orders
+        WHERE restaurant_id=? AND status='PREPARING'
+        `
+        const[result]=await db.query(getOngoingOrders,[resId])
+        return res.status(200).json({result})
+    }
+    catch(err)
+    {
+        return res.status(500).json({message:err.message})
+    }
+})
+
+router.get('/orders/:id/items',authMiddleWare,async(req,res)=>{
+    const resId=req.userId
+    const orderId=req.params.id
+    try
+    {
+        const getOrderItems=`
+        SELECT f.name,oi.quantity,f.food_image_path
+        FROM order_item oi
+        JOIN Restaurant_Menu f ON oi.food_id=f.food_id
+        WHERE f.res_id=? AND oi.order_id=?
+        `
+        const[result]=await db.query(getOrderItems,[resId,orderId])
+
+        if (result.length === 0) 
+        {
+            return res.status(404).json({message: "Order not found or unauthorized"});
+        }
+        return res.status(200).json({result})
+    }
+    catch(err)
+    {
+        return res.status(500).json({message:err.message})
+    }
+})
+
+router.get('/orders/:id',authMiddleWare,async(req,res)=>{
+    const resId=req.userId
+    const orderId=req.params.id
+    try
+    {
+        const getOrderDetails=`
+            SELECT order_id,price,payment_method
+            FROM orders
+            WHERE restaurant_id=? AND order_id=?
+        `
+        const[result]=await db.query(getOrderDetails,[resId,orderId])
+        if (result.length === 0) 
+        {
+            return res.status(404).json({message: "Order not found or unauthorized"});
+        }
+        return res.status(200).json({result})
+    }
+    catch(err)
+    {
+        return res.status(500).json({message:err.message})
+    }
+})
+
+
+router.get('/menu/categories',authMiddleWare,async(req,res)=>{
+    const resId=req.userId
+    try
+    {
+        const getCategories=`
+        SELECT DISTINCT course_name
+        FROM Restaurant_Menu 
+        WHERE res_id=?
+        `
+        const[result]=await db.query(getCategories,[resId])
+        
+        return res.status(200).json({result})
     }
     catch(err)
     {
