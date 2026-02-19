@@ -191,6 +191,6 @@ router.put('/updateOrderStatus',authMiddleWare,async(req,res)=>{
     }
 })
 
-
+export default router
 
 
