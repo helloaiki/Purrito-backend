@@ -25,6 +25,7 @@ const router = express.Router()
 // GET /api/restaurant/profile
 router.get('/profile', authMiddleWare, async (req, res) => {
     const resId = req.userId
+    console.log(resId)
     try {
         const getRes = `
             SELECT restaurant_id, res_name, email_address, street, city, postal_code, 
@@ -77,7 +78,7 @@ router.delete('/deleteaccount',authMiddleWare,async(req,res)=>{
         const [result]=await db.execute(deleteRes,[resId])
         if(result.affectedRows==0)
         {
-            return res.status(401).json({message:'No restaurant of this id was found'})
+            return res.status(404).json({message:'No restaurant of this id was found'})
         }
 
         return res.status(200).json({message:'Restaurant successfully deleted'})
@@ -85,7 +86,7 @@ router.delete('/deleteaccount',authMiddleWare,async(req,res)=>{
     }
     catch(err)
     {
-        return res.status(503).json({message:'Restaurant not found'})
+        return res.status(500).json({message:'Restaurant not found'})
     }
 })
 
@@ -256,9 +257,9 @@ router.get('/menu/items',authMiddleWare,async(req,res)=>{
     }
 })
 
-router.get('/menu/item/details',authMiddleWare,async(req,res)=>{
+router.get('/menu/item/details/:id',authMiddleWare,async(req,res)=>{
     const resId=req.userId
-    const {foodId}=req.body
+    const foodId=req.params.id
     try
     {
         const getDetailsAboutFoodItem=`
@@ -276,7 +277,7 @@ router.get('/menu/item/details',authMiddleWare,async(req,res)=>{
     }
 })
 
-router.put('/menu/item/:id', authMiddleWare, async (req, res) => {
+router.put('/menu/item/update/:id', authMiddleWare, async (req, res) => {
     const resId = req.userId;         
     const {foodId} = req.body;
 
@@ -331,19 +332,6 @@ router.put('/menu/item/:id', authMiddleWare, async (req, res) => {
     }
 });
 
-
-// CREATE TABLE rating_restaurant
-// (
-//     user_id INT,
-//     res_id INT,
-//     order_id INT,
-//     rating INT,
-//     comment VARCHAR(100),
-//     PRIMARY KEY(user_id,res_id,order_id),
-//     FOREIGN KEY(user_id) REFERENCES user(user_id) ON DELETE CASCADE,
-//     FOREIGN KEY(res_id) REFERENCES restaurant(restaurant_id) ON DELETE CASCADE,
-//     FOREIGN KEY(order_id) REFERENCES orders(order_id) ON DELETE CASCADE
-// );
 
 
 router.get('/rating', authMiddleWare, async (req, res) => {
