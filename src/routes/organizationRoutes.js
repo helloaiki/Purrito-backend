@@ -6,7 +6,7 @@ const router = express.Router()
 
 // GET /api/organization/profile
 router.get('/profile', authMiddleWare, async (req, res) => {
-    const orgId = req.user.organizationId || req.user.id;
+    const orgId = req.userId;
     try {
         const getRes = `
             SELECT org_id, org_name, email_address, street, city, postal_code, building_name 
@@ -43,7 +43,7 @@ router.get('/leftovers', async (req, res) => {
 
 router.post('/claim', authMiddleWare, async (req, res) => {
     const { food_id, res_id, made_on } = req.body;
-    const org_id = req.user.organizationId || req.user.id;
+    const org_id = req.userId;
 
     if (!org_id) {
         return res.status(403).json({ message: 'Only organizations can claim leftovers' });

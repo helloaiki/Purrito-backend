@@ -127,6 +127,10 @@ CREATE TABLE Restaurant_Menu
     FOREIGN KEY(res_id) REFERENCES restaurant(restaurant_id) ON DELETE CASCADE
 );
 
+--Add discount_percent column to Restaurant_Menu
+ALTER TABLE Restaurant_Menu 
+ADD COLUMN discount_percent DECIMAL(5,2) DEFAULT 0;
+
 
 --user's characteristics table
 USE purrito;
@@ -250,7 +254,21 @@ CREATE TABLE payment_credentials
     payment_method_information VARCHAR(100),
     PRIMARY KEY(user_id,payment_method),
     FOREIGN KEY(user_id) REFERENCES user(user_id) ON DELETE CASCADE
-)
+);
+
+CREATE TABLE coupon (
+    coupon_code VARCHAR(20) PRIMARY KEY,
+    discount_percent DECIMAL(5,2) NOT NULL,
+    min_order_value DECIMAL(7,2) DEFAULT 0,
+    expiry_date DATE NOT NULL,
+    is_active BOOLEAN DEFAULT 1
+);
+
+--Sample coupons for testing
+INSERT INTO coupon VALUES ('WELCOME10', 10.00, 100.00, '2026-12-31', 1);
+INSERT INTO coupon VALUES ('PURRITO20', 20.00, 200.00, '2026-12-31', 1);
+INSERT INTO coupon VALUES ('SAVE50',     5.00,  50.00, '2026-12-31', 1);
+
 
 USE purrito;
 SELECT * FROM restaurant;

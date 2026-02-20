@@ -17,8 +17,6 @@ const __filename = fileURLToPath(import.meta.url)
 //get directory
 const __dirname = dirname(__filename);
 
-app.use(express.static(path.join(__dirname, '../public')))
-
 app.use(cors())
 app.use(express.json());
 
@@ -28,8 +26,9 @@ app.use('/auth', authRoutes)
 app.use('/api/restaurant', restaurantRoutes)
 app.use('/api/user', userRoutes)
 app.use('/api/organization', organizationRoutes)
-app.use('/api/driver',driverRoutes)
+app.use('/api/driver', driverRoutes)
 
+app.use(express.static(path.join(__dirname, '../public')))
 
 app.listen(PORT, () => {
     console.log(`server has started on port: ${PORT}`);
