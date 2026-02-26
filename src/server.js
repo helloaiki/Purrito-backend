@@ -6,6 +6,8 @@ import restaurantRoutes from './routes/restaurantRoutes.js'
 import driverRoutes from './routes/driverRoutes.js'
 import userRoutes from './routes/userRoutes.js'
 import organizationRoutes from './routes/organizationRoutes.js'
+import WebSocket,{WebSocketServer} from 'ws'
+import { createClient } from 'redis'
 import cors from 'cors';
 
 const app = express()
@@ -16,6 +18,36 @@ const PORT = process.env.PORT || 5003
 const __filename = fileURLToPath(import.meta.url)
 //get directory
 const __dirname = dirname(__filename);
+
+export const redisClient=createClient(
+    {
+        socket:{
+            host:'127.0.0.1',
+            port:6379
+        }
+    }
+);
+redisClient.on('error',(err)=>{
+    console.log('Redis Client Error',err)
+})
+await redisClient.connect()
+
+const wss=new WebSocketServer({port:8008})
+export const clients={}
+
+wss.on('connection',(ws)=>{
+    ws.on('message',(message)=>{
+        const {orderId}=JSON.parse(message)
+        if(!clients[orderId])
+        {
+            clients[orderId]=new Set()
+        }
+        clients[orderId].add(ws)
+        ws.on('close',()=>clients[orderId].delete(ws))
+    })
+})
+
+console.log('Websocket server running on port 6739')
 
 app.use(express.static(path.join(__dirname, '../public')))
 
