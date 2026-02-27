@@ -42,8 +42,8 @@ router.get('/menu', async (req, res) => {
                 SELECT rm.food_id, rm.res_id, rm.name, rm.course_name,
                     rm.price, rm.food_image_path, rm.is_available,
                     rm.quantity_sold, rm.discount_percent,
-                    r.res_name, r.resaturant_type, r.city
-                FROM restaurant_menu rm
+                    r.res_name, r.restaurant_type, r.city
+                FROM Restaurant_Menu rm
                 JOIN restaurant r ON rm.res_id = r.restaurant_id
                 WHERE rm.is_available = 1
                 ORDER BY rm.quantity_sold DESC

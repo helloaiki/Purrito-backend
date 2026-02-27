@@ -1,0 +1,231 @@
+-- ============================================================
+--  PURRITO DATABASE SEED DATA  |  12 rows per table
+--  Unsplash images for restaurant & food visuals
+-- ============================================================
+
+USE purrito;
+
+-- ─── 1. USER ───────────────────────────────────────────────
+INSERT INTO user (user_name, email_address, password, phone_number) VALUES
+('arif_ahmed',    'arif@gmail.com',   '$2b$10$hashedpw1',  '01711000001'),
+('fatima_k',      'fatima@gmail.com', '$2b$10$hashedpw2',  '01711000002'),
+('sabbir_r',      'sabbir@gmail.com', '$2b$10$hashedpw3',  '01711000003'),
+('nadia_hossain', 'nadia@gmail.com',  '$2b$10$hashedpw4',  '01711000004'),
+('tanvir_islam',  'tanvir@gmail.com', '$2b$10$hashedpw5',  '01711000005'),
+('mim_chowdhury', 'mim@gmail.com',    '$2b$10$hashedpw6',  '01711000006'),
+('rakib_hassan',  'rakib@gmail.com',  '$2b$10$hashedpw7',  '01711000007'),
+('sadia_parvin',  'sadia@gmail.com',  '$2b$10$hashedpw8',  '01711000008'),
+('omar_faruk',    'omar@gmail.com',   '$2b$10$hashedpw9',  '01711000009'),
+('lina_begum',    'lina@gmail.com',   '$2b$10$hashedpw10', '01711000010'),
+('jahid_hasan',   'jahid@gmail.com',  '$2b$10$hashedpw11', '01711000011'),
+('rifat_alam',    'rifat@gmail.com',  '$2b$10$hashedpw12', '01711000012');
+
+
+-- ─── 2. RESTAURANT ─────────────────────────────────────────
+INSERT INTO restaurant (res_name, email_address, password, street, city, postal_code, building_name, food_program, res_image_path, description, restaurant_type) VALUES
+('Spice Garden',    'spicegarden@res.com',  '$2b$10$respw1',  'Road 12, Dhanmondi',    'Dhaka','1209','Spice Tower', 1,'https://images.unsplash.com/photo-1514190051997-0f6f39ca5cde?w=800','Authentic Bangladeshi cuisine','Bangladeshi'),
+('Burger Barn',     'burgerbarn@res.com',   '$2b$10$respw2',  'Road 27, Banani',        'Dhaka','1213','Barn Plaza',  0,'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800','Juicy burgers and loaded fries','Fast Food'),
+('Sushi Sakura',    'sushisakura@res.com',  '$2b$10$respw3',  'Gulshan Ave, Gulshan',   'Dhaka','1212','Sakura Hts',  0,'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?w=800','Fresh Japanese sushi and rolls','Japanese'),
+('Pizza Palace',    'pizzapalace@res.com',  '$2b$10$respw4',  'Mirpur Road, Mirpur',    'Dhaka','1216','Palace Bldg', 1,'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800','Wood-fired Neapolitan pizzas','Italian'),
+('Curry House',     'curryhouse@res.com',   '$2b$10$respw5',  'Uttara Sector 7',        'Dhaka','1230','Curry Cmplx', 1,'https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=800','Rich curries and biriyani','Indian'),
+('The Grill Stop',  'grillstop@res.com',    '$2b$10$respw6',  'Motijheel C/A',          'Dhaka','1000','Grill Tower', 0,'https://images.unsplash.com/photo-1544025162-d76694265947?w=800','BBQ and grilled meats done right','Grill'),
+('Noodle Nest',     'noodlenest@res.com',   '$2b$10$respw7',  'Bashundhara R/A',        'Dhaka','1229','Nest Plaza',  0,'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=800','Pan-Asian noodles and soups','Chinese'),
+('Green Bowl',      'greenbowl@res.com',    '$2b$10$respw8',  'Lalmatia Block B',       'Dhaka','1207','Green House', 1,'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=800','Healthy salads and vegan options','Healthy'),
+('Kebab Kingdom',   'kebabkingdom@res.com', '$2b$10$respw9',  'Old Dhaka, Chowk Bazar', 'Dhaka','1100','Kingdom Twr', 1,'https://images.unsplash.com/photo-1529006557810-274b9b2fc783?w=800','Traditional Mughal-style kebabs','Middle Eastern'),
+('Tacos and Co',    'tacosco@res.com',      '$2b$10$respw10', 'Road 11, Baridhara',     'Dhaka','1212','Taco Hub',    0,'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=800','Authentic Mexican street food','Mexican'),
+('Dim Sum Delight', 'dimsum@res.com',       '$2b$10$respw11', 'Mohakhali DOHS',          'Dhaka','1206','Delight Ctr', 0,'https://images.unsplash.com/photo-1563245372-f21724e3856d?w=800','Handcrafted dim sum and Chinese tea','Chinese'),
+('Shawarma Street', 'shawarma@res.com',     '$2b$10$respw12', 'Elephant Road',           'Dhaka','1205','Street Plaza',1,'https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=800','Crispy shawarma and wraps','Middle Eastern');
+
+
+-- ─── 3. DRIVER ─────────────────────────────────────────────
+INSERT INTO driver (user_name, email_address, password, verification_method, phone_number, join_date) VALUES
+('driver_karim',  'karim@driver.com',  '$2b$10$drpw1',  'NID',          '01811000001','2024-01-10'),
+('driver_rahim',  'rahim@driver.com',  '$2b$10$drpw2',  'NID',          '01811000002','2024-02-14'),
+('driver_jabbar', 'jabbar@driver.com', '$2b$10$drpw3',  'Driving Lic.', '01811000003','2024-03-05'),
+('driver_selim',  'selim@driver.com',  '$2b$10$drpw4',  'NID',          '01811000004','2024-04-20'),
+('driver_nasir',  'nasir@driver.com',  '$2b$10$drpw5',  'Passport',     '01811000005','2024-05-01'),
+('driver_halim',  'halim@driver.com',  '$2b$10$drpw6',  'NID',          '01811000006','2024-06-15'),
+('driver_masum',  'masum@driver.com',  '$2b$10$drpw7',  'Driving Lic.', '01811000007','2024-07-22'),
+('driver_kabir',  'kabir@driver.com',  '$2b$10$drpw8',  'NID',          '01811000008','2024-08-10'),
+('driver_bellal', 'bellal@driver.com', '$2b$10$drpw9',  'NID',          '01811000009','2024-09-01'),
+('driver_yusuf',  'yusuf@driver.com',  '$2b$10$drpw10', 'Driving Lic.', '01811000010','2024-10-11'),
+('driver_salah',  'salah@driver.com',  '$2b$10$drpw11', 'NID',          '01811000011','2024-11-05'),
+('driver_hridoy', 'hridoy@driver.com', '$2b$10$drpw12', 'Passport',     '01811000012','2024-12-01');
+
+
+-- ─── 4. ORGANIZATION ───────────────────────────────────────
+INSERT INTO organization (org_name, email_address, password, street, city, postal_code, building_name) VALUES
+('Feed the Future',  'ftf@org.com',      '$2b$10$orgpw1',  'Mohammadpur','Dhaka','1207','Future House'),
+('Hunger Relief BD', 'hrbd@org.com',     '$2b$10$orgpw2',  'Kamlapur',   'Dhaka','1214','Relief Center'),
+('Care and Share',   'care@org.com',      '$2b$10$orgpw3',  'Azimpur',    'Dhaka','1205','Care Complex'),
+('Asha Foundation',  'asha@org.com',      '$2b$10$orgpw4',  'Wari',       'Dhaka','1203','Asha Tower'),
+('Sobuj Dhaka',      'sobuj@org.com',     '$2b$10$orgpw5',  'Lalbagh',    'Dhaka','1211','Sobuj Bldg'),
+('Nourish BD',       'nourish@org.com',   '$2b$10$orgpw6',  'Shyamoli',   'Dhaka','1207','Nourish Hub'),
+('Food First',       'foodfirst@org.com', '$2b$10$orgpw7',  'Pallabi',    'Dhaka','1216','First Tower'),
+('Manush Manusher',  'manush@org.com',    '$2b$10$orgpw8',  'Rayerbazar', 'Dhaka','1207','Manush Plaza'),
+('Shajahan Trust',   'shajahan@org.com',  '$2b$10$orgpw9',  'Jatrabari',  'Dhaka','1204','Trust Bldg'),
+('Ekta Initiative',  'ekta@org.com',      '$2b$10$orgpw10', 'Demra',      'Dhaka','1360','Ekta Center'),
+('Bhalo Manush',     'bhalo@org.com',     '$2b$10$orgpw11', 'Badda',      'Dhaka','1212','Bhalo House'),
+('GreenHope',        'greenhope@org.com', '$2b$10$orgpw12', 'Rampura',    'Dhaka','1219','Hope Complex');
+
+
+-- ─── 5. CONTACT_RESTAURANT ─────────────────────────────────
+INSERT INTO contact_restaurant (res_id, phone_number) VALUES
+(1,'02-9111001'),(2,'02-9111002'),(3,'02-9111003'),(4,'02-9111004'),
+(5,'02-9111005'),(6,'02-9111006'),(7,'02-9111007'),(8,'02-9111008'),
+(9,'02-9111009'),(10,'02-9111010'),(11,'02-9111011'),(12,'02-9111012');
+
+
+-- ─── 6. RESTAURANT_MENU ────────────────────────────────────
+-- food_id auto-increments: 1-3 = Spice Garden, 4-6 = Burger Barn,
+-- 7-9 = Sushi Sakura, 10-12 = Pizza Palace, 13-15 = Curry House,
+-- 16-18 = Grill Stop, 19-21 = Noodle Nest, 22-24 = Green Bowl,
+-- 25-27 = Kebab Kingdom, 28-30 = Tacos, 31-33 = Dim Sum, 34-36 = Shawarma
+INSERT INTO Restaurant_Menu (res_id, name, course_name, price, is_available, quantity_sold, food_image_path, discount_percent) VALUES
+(1,'Kacchi Biriyani','Main',320.00,1,240,'https://images.unsplash.com/photo-1631515243349-e0cb75fb8d3a?w=600',0),
+(1,'Beef Bhuna','Main',280.00,1,180,'https://images.unsplash.com/photo-1574894709920-11b28e7367e3?w=600',5),
+(1,'Mishti Doi','Dessert',60.00,1,310,'https://images.unsplash.com/photo-1488477181946-6428a0291777?w=600',0),
+(2,'Classic Smash Burger','Main',350.00,1,420,'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600',10),
+(2,'Crispy Chicken Burger','Main',300.00,1,390,'https://images.unsplash.com/photo-1606755962773-d324e0a13086?w=600',0),
+(2,'Loaded Fries','Side',150.00,1,510,'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=600',0),
+(3,'Salmon Nigiri 6pc','Main',480.00,1,155,'https://images.unsplash.com/photo-1617196034183-421b4040ed20?w=600',0),
+(3,'Dragon Roll','Main',520.00,1,120,'https://images.unsplash.com/photo-1559410545-0bdcd187e0a6?w=600',5),
+(3,'Miso Soup','Side',80.00,1,200,'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=600',0),
+(4,'Margherita Pizza','Main',420.00,1,310,'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=600',0),
+(4,'BBQ Chicken Pizza','Main',490.00,1,275,'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600',15),
+(5,'Mutton Biriyani','Main',380.00,1,210,'https://images.unsplash.com/photo-1589302168068-964664d93dc0?w=600',0),
+(5,'Paneer Tikka Masala','Main',280.00,1,175,'https://images.unsplash.com/photo-1567188040759-fb8a883dc6d6?w=600',0),
+(5,'Mango Lassi','Drinks',90.00,1,360,'https://images.unsplash.com/photo-1553361371-9b22f78e8b1d?w=600',0),
+(6,'Beef Steak 250g','Main',650.00,1,95,'https://images.unsplash.com/photo-1558030006-450675393462?w=600',0),
+(6,'BBQ Ribs Half Rack','Main',780.00,1,80,'https://images.unsplash.com/photo-1544025162-d76694265947?w=600',10),
+(6,'Coleslaw','Side',80.00,1,200,'https://images.unsplash.com/photo-1619740455993-9e612b1af08a?w=600',0),
+(7,'Pad Thai','Main',280.00,1,190,'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=600',0),
+(7,'Beef Ramen','Main',320.00,1,165,'https://images.unsplash.com/photo-1569050467447-ce54b3bbc37d?w=600',5),
+(7,'Spring Rolls 4pc','Starter',140.00,1,280,'https://images.unsplash.com/photo-1548620081-b4b79502fb70?w=600',0),
+(8,'Quinoa Power Bowl','Main',350.00,1,130,'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600',0),
+(8,'Avocado Toast','Starter',220.00,1,175,'https://images.unsplash.com/photo-1541519227354-08fa5d50c820?w=600',0),
+(8,'Fresh Fruit Smoothie','Drinks',160.00,1,240,'https://images.unsplash.com/photo-1553530979-7ee52a2670c4?w=600',0),
+(9,'Seekh Kebab 6pc','Main',260.00,1,305,'https://images.unsplash.com/photo-1529006557810-274b9b2fc783?w=600',0),
+(9,'Chicken Shashlik','Main',290.00,1,285,'https://images.unsplash.com/photo-1603360946369-dc9bb6258143?w=600',5),
+(9,'Naan Bread','Side',40.00,1,500,'https://images.unsplash.com/photo-1601050690597-df0568f70950?w=600',0),
+(10,'Carne Asada Taco 3pc','Main',320.00,1,145,'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=600',0),
+(10,'Loaded Nachos','Starter',250.00,1,160,'https://images.unsplash.com/photo-1513456852971-30c0b8199d4d?w=600',10),
+(10,'Churros and Chocolate','Dessert',180.00,1,195,'https://images.unsplash.com/photo-1624371414361-e9f30e6db461?w=600',0),
+(11,'Har Gow 4pc','Main',220.00,1,115,'https://images.unsplash.com/photo-1563245372-f21724e3856d?w=600',0),
+(11,'Siu Mai 4pc','Main',200.00,1,125,'https://images.unsplash.com/photo-1585032226651-759b368d7246?w=600',0),
+(11,'Char Siu Bao','Main',180.00,1,100,'https://images.unsplash.com/photo-1496116218417-1a781b1c416c?w=600',5),
+(12,'Chicken Shawarma','Main',180.00,1,520,'https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=600',0),
+(12,'Beef Shawarma','Main',200.00,1,460,'https://images.unsplash.com/photo-1561651823-34feb02250e4?w=600',5),
+(12,'Shawarma Wrap Combo','Main',280.00,1,380,'https://images.unsplash.com/photo-1626700051175-6818013e1d4f?w=600',10);
+
+
+-- ─── 7. CHARACTER_USER ─────────────────────────────────────
+INSERT INTO character_user (user_id, trait) VALUES
+(1,'spicy'),(1,'meat-lover'),(2,'vegetarian'),(2,'healthy'),
+(3,'fast-food'),(3,'burger-fan'),(4,'seafood'),(4,'sushi-lover'),
+(5,'vegan'),(5,'gluten-free'),(6,'dessert-lover'),(6,'sweet-tooth'),
+(7,'BBQ'),(7,'grill-fan'),(8,'street-food'),(8,'budget-friendly'),
+(9,'fine-dining'),(9,'gourmet'),(10,'spicy'),(10,'noodle-fan'),
+(11,'kebab-fan'),(11,'meat-lover'),(12,'healthy'),(12,'salad-lover');
+
+
+-- ─── 8. FOOD_CHARACTERISTIC ────────────────────────────────
+INSERT INTO food_characteristic (res_id, food_id, trait) VALUES
+(1,1,'spicy'),(1,1,'halal'),(1,2,'spicy'),(1,2,'meat'),
+(2,4,'fast-food'),(2,4,'beef'),(2,5,'fast-food'),(2,5,'chicken'),
+(3,7,'seafood'),(3,7,'raw-fish'),(4,10,'vegetarian'),(4,10,'cheesy'),
+(4,11,'chicken'),(4,11,'smoky'),(5,13,'spicy'),(5,13,'halal'),
+(6,16,'beef'),(6,16,'grilled'),(7,19,'noodles'),(7,19,'thai'),
+(8,22,'vegan'),(8,22,'gluten-free'),(9,25,'halal'),(9,25,'grilled');
+
+
+-- ─── 9. ORDERS ─────────────────────────────────────────────
+INSERT INTO orders (user_id, restaurant_id, driver_id, price, delivery_address, delivery_lat, delivery_lng, payment_method, status) VALUES
+(1,1,1,600.00,'Dhanmondi Road 5, Dhaka',23.74650000,90.37440000,'bKash','DELIVERED'),
+(2,2,2,500.00,'Banani Road 17, Dhaka',23.79340000,90.40310000,'Cash','DELIVERED'),
+(3,3,3,480.00,'Gulshan 2, Dhaka',23.78060000,90.41290000,'Card','DELIVERED'),
+(4,4,4,420.00,'Mirpur 10, Dhaka',23.80750000,90.36580000,'bKash','PLACED'),
+(5,5,5,380.00,'Uttara Sector 10, Dhaka',23.87230000,90.39870000,'Cash','PREPARING'),
+(6,6,6,650.00,'Motijheel C/A, Dhaka',23.72840000,90.41780000,'Nagad','PICKED_UP'),
+(7,7,7,280.00,'Bashundhara Block A, Dhaka',23.81680000,90.42550000,'Cash','DELIVERED'),
+(8,8,8,350.00,'Lalmatia Block D, Dhaka',23.75620000,90.36910000,'bKash','DELIVERED'),
+(9,9,9,260.00,'Old Dhaka, Islampur',23.71650000,90.40940000,'Cash','WAITING'),
+(10,10,10,320.00,'Baridhara Diplomatic Zone',23.79550000,90.42820000,'Card','DELIVERED'),
+(11,11,11,220.00,'Mohakhali DOHS, Dhaka',23.78100000,90.40890000,'Cash','DELIVERED'),
+(12,12,12,180.00,'Elephant Road, Dhaka',23.74010000,90.38360000,'bKash','DELIVERED');
+
+
+-- ─── 10. ORDER_ITEM ────────────────────────────────────────
+INSERT INTO order_item (order_id, food_id, quantity) VALUES
+(1,1,1),(1,3,2),(2,4,1),(2,6,1),(3,7,2),(3,9,1),(4,10,1),
+(5,13,1),(5,15,1),(6,16,1),(7,19,1),(8,22,1),(9,25,2),
+(10,28,2),(11,31,2),(12,34,1);
+
+
+-- ─── 11. RESTAURANT_INCOME ─────────────────────────────────
+INSERT INTO restaurant_income (order_id, restaurant_id, payment, payment_date, has_delivered) VALUES
+(1,1,540.00,'2025-11-01',1),(2,2,450.00,'2025-11-02',1),
+(3,3,432.00,'2025-11-03',1),(4,4,378.00,'2025-11-04',0),
+(5,5,342.00,'2025-11-05',0),(6,6,585.00,'2025-11-06',0),
+(7,7,252.00,'2025-11-07',1),(8,8,315.00,'2025-11-08',1),
+(9,9,234.00,'2025-11-09',0),(10,10,288.00,'2025-11-10',1),
+(11,11,198.00,'2025-11-11',1),(12,12,162.00,'2025-11-12',1);
+
+
+-- ─── 12. DRIVER_INCOME ─────────────────────────────────────
+INSERT INTO driver_income (order_id, driver_id, payment, payment_date, has_delivered) VALUES
+(1,1,60.00,'2025-11-01',1),(2,2,50.00,'2025-11-02',1),
+(3,3,48.00,'2025-11-03',1),(4,4,42.00,'2025-11-04',0),
+(5,5,38.00,'2025-11-05',0),(6,6,65.00,'2025-11-06',0),
+(7,7,28.00,'2025-11-07',1),(8,8,35.00,'2025-11-08',1),
+(9,9,26.00,'2025-11-09',0),(10,10,32.00,'2025-11-10',1),
+(11,11,22.00,'2025-11-11',1),(12,12,18.00,'2025-11-12',1);
+
+
+-- ─── 13. RATING_RESTAURANT ─────────────────────────────────
+INSERT INTO rating_restaurant (user_id, res_id, order_id, rating, comment) VALUES
+(1,1,1,5,'Best kacchi in Dhaka!'),
+(2,2,2,4,'Burger was great, fries a bit salty'),
+(3,3,3,5,'Freshest sushi I have had here'),
+(4,4,4,4,'Pizza was delicious and hot'),
+(5,5,5,3,'Good curry but slow delivery'),
+(6,6,6,5,'Steak perfectly cooked!'),
+(7,7,7,4,'Pad Thai flavour was on point'),
+(8,8,8,5,'Healthy and filling, love it'),
+(9,9,9,4,'Kebabs were juicy and smoky'),
+(10,10,10,4,'Tacos were authentic and tasty'),
+(11,11,11,5,'Dim sum was amazing, will order again'),
+(12,12,12,5,'Cheapest and best shawarma in town');
+
+
+-- ─── 14. RATING_DRIVER ─────────────────────────────────────
+INSERT INTO rating_driver (order_id, user_id, driver_id, rating) VALUES
+(1,1,1,5),(2,2,2,4),(3,3,3,5),(4,4,4,3),
+(5,5,5,4),(6,6,6,5),(7,7,7,5),(8,8,8,4),
+(9,9,9,3),(10,10,10,4),(11,11,11,5),(12,12,12,5);
+
+
+-- ─── 15. LEFTOVER_AVAILABLE ────────────────────────────────
+INSERT INTO leftover_available (res_id, food_id, made_on, quantity, taken_on, org_id) VALUES
+(1,1,'2025-11-01',10,'2025-11-01',1),
+(2,4,'2025-11-02',8,'2025-11-02',2),
+(3,7,'2025-11-03',5,NULL,NULL),
+(4,10,'2025-11-04',12,'2025-11-04',3),
+(5,13,'2025-11-05',7,NULL,NULL),
+(6,16,'2025-11-06',4,'2025-11-06',4),
+(7,19,'2025-11-07',9,'2025-11-07',5),
+(8,22,'2025-11-08',6,NULL,NULL),
+(9,25,'2025-11-09',15,'2025-11-09',6),
+(10,28,'2025-11-10',10,'2025-11-10',7),
+(11,31,'2025-11-11',8,NULL,NULL),
+(12,34,'2025-11-12',20,'2025-11-12',8);
+
+
+-- ─── 16. PAYMENT_CREDENTIALS ───────────────────────────────
+INSERT INTO payment_credentials (user_id, payment_method, payment_method_information) VALUES
+(1,'bKash','01711000001'),(2,'Cash','Pay on delivery'),
+(3,'Card','Visa **** 4321'),(4,'bKash','01711000004'),
+(5,'Nagad','01711000005'),(6,'Rocket','01711000006'),
+(7,'Cash','Pay on delivery'),(8,'bKash','01711000008'),
+(9,'Cash','Pay on delivery'),(10,'Card','Mastercard **** 8765'),
+(11,'bKash','01711000011'),(12,'Nagad','01711000012');
