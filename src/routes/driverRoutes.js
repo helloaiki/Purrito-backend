@@ -1,8 +1,35 @@
 import express from 'express'
 import db from '../db.js'
 import authMiddleWare from '../middleware/authMiddleware.js'
+import { redisClient, clients } from '../server.js'
+import { WebSocketServer } from 'ws'
+
 
 const router = express.Router()
+
+router.post('/location', async (req, res) => {
+    const { driverId, orderId, lat, long } = req.body
+    if (!driverId || !orderId || !lat || !long) {
+        return res.status(400).json({ message: 'Missing parameters' })
+    }
+    const key = `driver:${driverId}:location`
+    const value = JSON.stringify({ orderId, lat, long, updatedAt: Date.now() })
+    try {
+        await redisClient.set(key, value, { EX: 15 })
+    }
+    catch (err) {
+        return res.status(400).json({ message: err.message })
+    }
+    if (clients[orderId]) {
+        clients[orderId].forEach((ws) => {
+            if (ws.readyState == WebSocket.OPEN) {
+                ws.send(value)
+            }
+        })
+    }
+
+    return res.status(200).json({ message: 'OK' })
+})
 
 router.get('/profile', authMiddleWare, async (req, res) => {
     const driverId = req.userId
@@ -93,6 +120,8 @@ router.get('/ordersavailable', authMiddleWare, async (req, res) => {
 
 
 
+
+
 router.get('/orderinformation', authMiddleWare, async (req, res) => {
     try {
         const { orderId } = req.body
@@ -167,6 +196,6 @@ router.put('/updateOrderStatus', authMiddleWare, async (req, res) => {
     }
 })
 
-
 export default router
+
 

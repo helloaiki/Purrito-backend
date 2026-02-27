@@ -1,4 +1,4 @@
-import jwt from 'jsonwebtoken'
+import jwt from 'jsonwebtoken';
 
 function authMiddleWare(req, res, next) {
     const authHeader = req.headers['authorization'];
@@ -7,7 +7,9 @@ function authMiddleWare(req, res, next) {
         return res.status(401).json({ message: 'No token provided' });
     }
 
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7, authHeader.length) : authHeader;
+    const token = authHeader.startsWith('Bearer ')
+        ? authHeader.slice(7)
+        : authHeader;
 
 
     if (!token) {
@@ -41,6 +43,6 @@ function authMiddleWare(req, res, next) {
     })
 }
 
+export default authMiddleWare;
 
 
-export default authMiddleWare

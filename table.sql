@@ -4,6 +4,8 @@ CREATE DATABASE purrito;
 
 --Uses purrtio db for storage
 USE purrito;
+SELECT *
+FROM user;
 
 
 --user table
@@ -238,6 +240,7 @@ CREATE TABLE leftover_available
     quantity INT,
     taken_on DATE NULL,
     org_id INT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY(res_id,food_id,made_on),
     FOREIGN KEY(res_id) REFERENCES restaurant(restaurant_id) ON DELETE CASCADE,
     FOREIGN KEY(food_id) REFERENCES Restaurant_Menu(food_id) ON DELETE CASCADE,
@@ -279,6 +282,51 @@ SELECT * FROM user;
 
 USE purrito;
 SELECT * FROM driver;
+
+
+--Triggers required
+--1
+--trigger for confirmation payment status after delivering the order
+DELIMITER $$
+
+CREATE TRIGGER confirm_payment
+AFTER UPDATE
+ON orders
+FOR EACH ROW
+BEGIN
+    IF OLD.status<>'DELIVERED' AND NEW.status='DELIVERED' THEN
+        UPDATE driver_income 
+        SET has_delivered=TRUE
+        WHERE order_id=NEW.order_id;
+        UPDATE restaurant_income 
+        SET has_delivered=TRUE
+        WHERE order_id=NEW.order_id;
+    END IF;
+END$$
+
+DELIMITER ;
+
+--2
+--event for deleting leftovers which have been sitting for 48 hours with no org taking it
+DELIMITER $$
+
+CREATE EVENT delete_old_leftovers
+ON SCHEDULE EVERY 1 HOUR
+DO
+BEGIN
+    DELETE FROM leftover_available
+    WHERE created_at<NOW()-INTERVAL 48 HOUR AND org_id IS NULL;
+END $$
+
+DELIMITER ;
+
+
+
+
+
+
+
+        
 
 
 

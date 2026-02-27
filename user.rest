@@ -19,4 +19,23 @@ Content-Type: application/json
     "password":"123123"
 }
 
+###
+POST http://localhost:5003/auth/user/signup
+Content-Type: application/json
+
+{
+    "name": "rahim",
+    "email": "rahim.hossain@gmail.com",
+    "password": "securePass456",
+    "contact": "01811223344"
+}
+
+POST http://localhost:5003/auth/user/login
+Content-Type: application/json
+
+{
+    "email":"rahim.hossain@gmail.com",
+    "password":"securePass456"
+}
+
 
