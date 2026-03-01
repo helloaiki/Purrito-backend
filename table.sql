@@ -34,6 +34,8 @@ CREATE TABLE restaurant
     city VARCHAR(20),
     postal_code CHAR(4),
     building_name VARCHAR(50),
+    lat DECIMAL(10,8),
+    lng DECIMAL(11,8),
     food_program BOOLEAN DEFAULT 0,
     res_image_path VARCHAR(512),
     description VARCHAR(100),
@@ -317,6 +319,9 @@ BEGIN
     DELETE FROM leftover_available
     WHERE created_at<NOW()-INTERVAL 48 HOUR AND org_id IS NULL;
 END $$
+
+DELIMITER ;
+
 
 --3
 DELIMITER $$
