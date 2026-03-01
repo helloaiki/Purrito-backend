@@ -15,7 +15,7 @@ router.post('/driver/signup', async (req, res) => {
         const insertDriver = `INSERT INTO driver(user_name,email_address,password,verification_method,phone_number,join_date) VALUES(?,?,?,?,?,?)`
         const [result] = await db.execute(insertDriver, [name, email, hashedPassword, verification, contact, joinDate])
         console.log(result.insertId)
-        const token = jwt.sign({ id: result.insertId }, process.env.MYSECRETKEY, { expiresIn: '24h' })
+        const token = jwt.sign({ driverId: result.insertId }, process.env.MYSECRETKEY, { expiresIn: '24h' })
         return res.status(201).json({ token: token })
     }
     catch (err) {
@@ -60,7 +60,7 @@ router.post('/restaurant/signup', async (req, res) => {
         const insertRestaurant = `INSERT INTO restaurant(res_name,email_address,password,street,city,postal_code,building_name,food_program,res_image_path,description,restaurant_type) VALUES(?,?,?,?,?,?,?,?,?,?,?)`
         const [result] = await db.execute(insertRestaurant, [name, email, hashedPassword, street, city, postalcode, buildingname, isSignedUpForFoodDonationProgram, resimagepath, description, restauranttype])
         console.log(result.insertId)
-        const token = jwt.sign({ id: result.insertId }, process.env.MYSECRETKEY, { expiresIn: '24h' })
+        const token = jwt.sign({ restaurantId: result.insertId }, process.env.MYSECRETKEY, { expiresIn: '24h' })
         return res.status(201).json({ token: token })
     }
     catch (err) {
@@ -159,7 +159,7 @@ router.post('/organization/signup', async (req, res) => {
         const insertOrganization = `INSERT INTO organization(org_name,email_address,password,street,city,postal_code,building_name) VALUES(?,?,?,?,?,?,?)`
         const [result] = await db.execute(insertOrganization, [name, email, hashedPassword, street, city, postalcode, buildingname])
         console.log(result.insertId)
-        const token = jwt.sign({ id: result.insertId }, process.env.MYSECRETKEY, { expiresIn: '24h' })
+        const token = jwt.sign({ orgId: result.insertId }, process.env.MYSECRETKEY, { expiresIn: '24h' })
         return res.status(201).json({ token: token })
     }
     catch (err) {
@@ -184,7 +184,7 @@ router.post('/organization/login', async (req, res) => {
             return res.status(401).json({ message: 'Incorrect password' })
         }
 
-        const token = jwt.sign({ id: organization.org_id }, process.env.MYSECRETKEY, { expiresIn: '24h' })
+        const token = jwt.sign({ orgId: organization.org_id }, process.env.MYSECRETKEY, { expiresIn: '24h' })
         return res.status(200).json({ token })
 
     } catch (err) {

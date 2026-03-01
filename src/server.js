@@ -12,6 +12,11 @@ import cors from 'cors';
 
 const app = express()
 
+app.use((req, res, next) => {
+    console.log(`${req.method} ${req.url}`);
+    next();
+});
+
 const PORT = process.env.PORT || 5003
 
 //get file
@@ -59,7 +64,7 @@ app.use('/auth', authRoutes)
 app.use('/api/restaurant', restaurantRoutes)
 app.use('/api/user', userRoutes)
 app.use('/api/organization', organizationRoutes)
-app.use('/api/driver', driverRoutes)
+app.use('/driver', driverRoutes)
 
 app.use(express.static(path.join(__dirname, '../public')))
 

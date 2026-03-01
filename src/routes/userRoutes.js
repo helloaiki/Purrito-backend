@@ -34,6 +34,25 @@ router.put('/profile', authMiddleWare, async (req, res) => {
     }
 });
 
+// DELETE /api/user/deleteaccount
+router.delete('/deleteaccount', authMiddleWare, async (req, res) => {
+    const userId = req.userId
+    try {
+        const [result] = await db.execute(
+            'DELETE FROM user WHERE user_id = ?',
+            [userId]
+        )
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'User not found' })
+        }
+        res.status(200).json({ message: 'Account deleted successfully' })
+    }
+    catch (err) {
+        console.error(err)
+        res.status(500).json({ message: 'Error deleting account' })
+    }
+});
+
 //Menu Routes
 // GET /api/user/menu
 router.get('/menu', async (req, res) => {
@@ -342,12 +361,38 @@ router.post('/orders/:order_id/rate', authMiddleWare, async (req, res) => {
             ON DUPLICATE KEY UPDATE rating = VALUES(rating)`,
             [userId, order[0].restaurant_id, order_id, rating]
         )
-        res.status(200).json({ message: 'Rating saved' })
+        res.status(200).json({ message: 'Restaurant rating saved' })
     } catch (err) {
         console.error(err)
-        res.status(500).json({ message: 'Error saving rating' })
+        res.status(500).json({ message: 'Error saving restaurant rating' })
     }
 });
+
+// POST /api/user/orders/:order_id/ratedriver
+router.post('/orders/:order_id/ratedriver', authMiddleWare, async (req, res) => {
+    const { order_id } = req.params
+    const userId = req.userId
+    const { rating } = req.body
+    try {
+        const [order] = await db.execute(
+            `SELECT driver_id FROM orders WHERE order_id = ? AND user_id=?`,
+            [order_id, userId]
+        )
+        if (order.length === 0) return res.status(404).json({ message: 'Order not found' });
+        if (!order[0].driver_id) return res.status(400).json({ message: 'No driver assigned to this order' });
+
+        await db.execute(
+            `INSERT INTO rating_driver (user_id, driver_id, order_id, rating)
+            VALUES (?,?,?,?)
+            ON DUPLICATE KEY UPDATE rating = VALUES(rating)`,
+            [userId, order[0].driver_id, order_id, rating]
+        )
+        res.status(200).json({ message: 'Driver rating saved' })
+    } catch (err) {
+        console.error(err)
+        res.status(500).json({ message: 'Error saving driver rating' })
+    }
+})
 
 //Coupon Route
 

@@ -318,10 +318,69 @@ BEGIN
     WHERE created_at<NOW()-INTERVAL 48 HOUR AND org_id IS NULL;
 END $$
 
+--3
+DELIMITER $$
+
+CREATE TRIGGER validate_rating_restaurant 
+BEFORE INSERT ON rating_restaurant
+FOR EACH ROW
+BEGIN
+    IF NEW.rating<1 OR NEW.rating>5 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Rating must be between 1 and 5';
+    END IF;
+END $$
+
 DELIMITER ;
 
+--4 
+DELIMITER $$
 
+CREATE TRIGGER validate_rating_driver 
+BEFORE INSERT ON rating_driver
+FOR EACH ROW
+BEGIN
+    IF NEW.rating<1 OR NEW.rating>5 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Rating must be between 1 and 5';
+    END IF;
+END $$
 
+DELIMITER ;
+
+--5
+DELIMITER $$ 
+
+CREATE TRIGGER prevent_rating_restaurant_undelivered
+BEFORE INSERT ON rating_restaurant
+FOR EACH ROW
+BEGIN 
+    DECLARE ord_status VARCHAR(20);
+    SELECT status INTO ord_status FROM orders WHERE order_id= NEW.order_id;
+    IF ord_status <> 'DELIVERED' THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Cannot rate an undelivered order';
+    END IF;
+END $$
+
+DELIMITER ;
+
+--6
+DELIMITER $$
+
+CREATE TRIGGER prevent_rating_driver_undelivered
+BEFORE INSERT ON rating_driver
+FOR EACH ROW
+BEGIN 
+    DECLARE ord_status VARCHAR(20);
+    SELECT status INTO ord_status FROM orders WHERE order_id= NEW.order_id;
+    IF ord_status <> 'DELIVERED' THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Cannot rate driver before the order is delivered.';
+    END IF;
+END $$
+
+DELIMITER ;
 
 
 
