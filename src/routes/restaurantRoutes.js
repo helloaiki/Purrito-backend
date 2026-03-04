@@ -36,10 +36,10 @@ router.get('/profile', authMiddleWare, async (req, res) => {
             return res.status(404).json({ message: 'Restaurant not found' });
         }
 
-        res.status(200).json(restaurant[0]);
+        return res.status(200).json(restaurant[0]);
     } catch (err) {
         console.error(err)
-        res.status(500).json({ message: 'Error fetching profile' });
+        return res.status(500).json({ message: 'Error fetching profile' });
     }
 });
 
@@ -60,6 +60,29 @@ router.post('/leftover', authMiddleWare, async (req, res) => {
         res.status(500).json({ message: 'Error adding leftover' });
     }
 });
+
+router.post('/setlocation',authMiddleWare,async(req,res)=>{
+    const{lat,long}=req.body
+    const resId=req.userId
+    const setLocation=`UPDATE restaurant
+    SET lat=?,lng=?
+    WHERE restaurant_id=?
+    `
+    try
+    {
+        const [result]=await db.execute(setLocation,[lat,long,resId])
+        if(result.affectedRows==0)
+        {
+            return res.status(400).json({message:'Error in setting the location coordinates'})
+        }
+
+        return res.status(200).json({message:'Successfully updated restaurant'})
+    }
+    catch(err)
+    {
+        return res.status(500).json({message:err.message})
+    }
+})
 
 
 

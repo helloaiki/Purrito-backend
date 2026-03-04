@@ -34,6 +34,8 @@ CREATE TABLE restaurant
     city VARCHAR(20),
     postal_code CHAR(4),
     building_name VARCHAR(50),
+    lat DECIMAL(10,8),
+    lng DECIMAL(11,8),
     food_program BOOLEAN DEFAULT 0,
     res_image_path VARCHAR(512),
     description VARCHAR(100),
@@ -247,6 +249,23 @@ CREATE TABLE leftover_available
     FOREIGN KEY(org_id) REFERENCES organization(org_id) ON DELETE CASCADE   
 );
 
+--table for restaurant issued coupons
+USE purrito;
+CREATE TABLE food_item_coupon
+(
+    coupon_id INT AUTO_INCREMENT,
+    food_id INT,
+    coupon_name VARCHAR(100) NOT NULL,
+    discount_type ENUM('PERCENT','FIXED') NOT NULL,
+    discount_value INT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    expires_on DATETIME NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    times_used INT DEFAULT 0,
+    PRIMARY KEY(coupon_id),
+    FOREIGN KEY(food_id) REFERENCES Restaurant_Menu(food_id) ON DELETE CASCADE
+);
+
 
 
 USE purrito;
@@ -317,6 +336,9 @@ BEGIN
     DELETE FROM leftover_available
     WHERE created_at<NOW()-INTERVAL 48 HOUR AND org_id IS NULL;
 END $$
+
+DELIMITER ;
+
 
 --3
 DELIMITER $$
