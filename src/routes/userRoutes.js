@@ -61,7 +61,8 @@ router.get('/menu', async (req, res) => {
                 SELECT rm.food_id, rm.res_id, rm.name, rm.course_name,
                     rm.price, rm.food_image_path, rm.is_available,
                     rm.quantity_sold, rm.discount_percent,
-                    r.res_name, r.restaurant_type, r.city
+                    r.res_name, r.restaurant_type, r.city,
+                    (SELECT IFNULL(ROUND(AVG(rating), 1), 4.5) FROM rating_restaurant WHERE res_id = r.restaurant_id) AS rating
                 FROM Restaurant_Menu rm
                 JOIN restaurant r ON rm.res_id = r.restaurant_id
                 WHERE rm.is_available = 1
@@ -80,7 +81,8 @@ router.get('/menu/trending', async (req, res) => {
         const getTrendMenu = `
             SELECT rm.food_id, rm.res_id, rm.name, rm.course_name,
                 rm.price, rm.food_image_path, rm.quantity_sold,
-                r.res_name
+                r.res_name,
+                (SELECT IFNULL(ROUND(AVG(rating), 1), 4.5) FROM rating_restaurant WHERE res_id = r.restaurant_id) AS rating
             FROM Restaurant_Menu rm
             JOIN restaurant r ON rm.res_id = r.restaurant_id
             WHERE rm.is_available = 1
@@ -101,7 +103,8 @@ router.get('/menu/offers', async (req, res) => {
         const getOfferMenu = `
             SELECT rm.food_id, rm.res_id, rm.name, rm.course_name,
                 rm.price, rm.food_image_path, rm.discount_percent,
-                r.res_name
+                r.res_name,
+                (SELECT IFNULL(ROUND(AVG(rating), 1), 4.5) FROM rating_restaurant WHERE res_id = r.restaurant_id) AS rating
             FROM Restaurant_Menu rm
             JOIN restaurant r ON rm.res_id = r.restaurant_id
             WHERE rm.discount_percent > 0 AND rm.is_available = 1
@@ -156,7 +159,8 @@ router.get('/menu/:food_id', async (req, res) => {
                 SELECT rm.food_id, rm.res_id, rm.name, rm.course_name,
                    rm.price, rm.food_image_path, rm.is_available,
                    r.res_name, r.restaurant_type, r.city,
-                   r.description AS res_description
+                   r.description AS res_description,
+                   (SELECT IFNULL(ROUND(AVG(rating), 1), 4.5) FROM rating_restaurant WHERE res_id = r.restaurant_id) AS rating
                 FROM Restaurant_Menu rm
                 JOIN restaurant r ON rm.res_id = r.restaurant_id
                 WHERE rm.food_id=?
@@ -178,7 +182,8 @@ router.get('/menu/restaurant/:res_id', async (req, res) => {
         const [rows] = await db.execute(`
                 SELECT rm.food_id, rm.res_id, rm.name, rm.course_name,
                    rm.price, rm.food_image_path,
-                   r.res_name
+                   r.res_name, r.res_image_path AS restaurant_image, r.city, r.street,
+                   (SELECT IFNULL(ROUND(AVG(rating), 1), 4.5) FROM rating_restaurant WHERE res_id = r.restaurant_id) AS rating
                 FROM Restaurant_Menu rm
                 JOIN restaurant r ON rm.res_id = r.restaurant_id
                 WHERE rm.res_id=?
@@ -193,12 +198,33 @@ router.get('/menu/restaurant/:res_id', async (req, res) => {
     }
 });
 
+// GET /api/user/restaurants
+router.get('/restaurants', async (req, res) => {
+    try {
+        const [rows] = await db.execute(`
+                SELECT r.restaurant_id, r.res_name, r.restaurant_type,
+                    r.city, r.res_image_path,
+                    (SELECT IFNULL(ROUND(AVG(rating), 1), 4.5) FROM rating_restaurant WHERE res_id = r.restaurant_id) AS rating,
+                    COUNT(o.order_id) AS order_count
+                FROM restaurant r
+                LEFT JOIN orders o ON r.restaurant_id = o.restaurant_id
+                GROUP BY r.restaurant_id
+                ORDER BY order_count DESC
+        `)
+        res.status(200).json(rows)
+    } catch (err) {
+        console.error(err)
+        res.status(500).json({ message: 'Error fetching all restaurants' })
+    }
+})
+
 // GET /api/user/restaurants/trending
 router.get('/restaurants/trending', async (req, res) => {
     try {
         const [rows] = await db.execute(`
                 SELECT r.restaurant_id, r.res_name, r.restaurant_type,
                     r.city, r.res_image_path,
+                    (SELECT IFNULL(ROUND(AVG(rating), 1), 4.5) FROM rating_restaurant WHERE res_id = r.restaurant_id) AS rating,
                     COUNT(o.order_id) AS order_count
                 FROM restaurant r
                 LEFT JOIN orders o ON r.restaurant_id = o.restaurant_id
@@ -212,6 +238,25 @@ router.get('/restaurants/trending', async (req, res) => {
         res.status(500).json({ message: 'Error fetching trending restaurants' })
     }
 })
+
+// GET /api/user/restaurants/:res_id
+router.get('/restaurants/:res_id', async (req, res) => {
+    const { res_id } = req.params;
+    try {
+        const [rows] = await db.execute(`
+                SELECT restaurant_id, res_name, restaurant_type,
+                    city, street, res_image_path,
+                    (SELECT IFNULL(ROUND(AVG(rating), 1), 4.5) FROM rating_restaurant WHERE res_id = restaurant_id) AS rating
+                FROM restaurant
+                WHERE restaurant_id = ?
+        `, [res_id]);
+        if (rows.length === 0) return res.status(404).json({ message: 'Restaurant not found' });
+        res.status(200).json(rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Error fetching restaurant details' });
+    }
+});
 
 //Order Routes
 
