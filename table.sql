@@ -404,6 +404,22 @@ END $$
 
 DELIMITER ;
 
+--7
+--event for deactivating all coupons beyond their expiry date
+DELIMITER $$
+
+CREATE EVENT deactivate_coupon
+ON SCHEDULE EVERY 1 HOUR
+DO
+BEGIN
+    UPDATE food_item_coupon
+    SET is_active=FALSE
+    WHERE expires_on<=NOW() AND is_active=TRUE;
+END $$
+
+DELIMITER ;
+
+
 
 
 
