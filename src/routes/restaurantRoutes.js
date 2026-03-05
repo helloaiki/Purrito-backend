@@ -633,7 +633,7 @@ router.get('/getCoupons/:ordered',authMiddleWare,async(req,res)=>{
 router.get('/couponeditems',authMiddleWare,async(req,res)=>{
     const resId=req.userId
     const getCouponedItems=`
-    SELECT r.name,r.food_image_path,a.coupon_name,a.discount_type,a.discount_value
+    SELECT r.name,r.food_image_path,a.coupon_name,a.discount_type,a.discount_value,a.coupon_id,r.food_id
     FROM Restaurant_Menu r
     JOIN food_item_coupon a ON r.res_id=a.restaurant_id
     JOIN couponed_items c ON c.food_id=r.food_id
@@ -650,9 +650,10 @@ router.get('/couponeditems',authMiddleWare,async(req,res)=>{
     }
 })
 
-router.put('/deactivatecoupon/:foodid',authMiddleWare,async(req,res)=>{
+router.put('/deactivatecoupon/:foodid/:couponid',authMiddleWare,async(req,res)=>{
     const resId=req.userId
     const foodId=req.params.foodid
+    const couponId=req.params.couponid
     const checkEligibility=`
     SELECT COUNT(*) AS resCount
     FROM Restaurant_Menu
@@ -661,7 +662,7 @@ router.put('/deactivatecoupon/:foodid',authMiddleWare,async(req,res)=>{
     const deactivateCoupon=`
     UPDATE couponed_items
     SET is_active=FALSE
-    WHERE food_id=? AND is_active=TRUE
+    WHERE food_id=? AND is_active=TRUE AND coupon_id=?
     `
     try
     {
@@ -671,7 +672,7 @@ router.put('/deactivatecoupon/:foodid',authMiddleWare,async(req,res)=>{
             return res.status(404).json({message:'Not authorized to give a coupon on menu item'})
         }
 
-        const[result]=await db.execute(deactivateCoupon,[foodId])
+        const[result]=await db.execute(deactivateCoupon,[foodId,couponId])
 
         if(result.affectedRows==0)
         {
