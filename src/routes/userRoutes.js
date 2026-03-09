@@ -158,7 +158,7 @@ router.get('/menu/:food_id', async (req, res) => {
         const [rows] = await db.execute(`
                 SELECT rm.food_id, rm.res_id, rm.name, rm.course_name,
                    rm.price, rm.food_image_path, rm.is_available,
-                   r.res_name, r.restaurant_type, r.city,
+                   r.res_name, r.restaurant_type, r.building_name, r.street, r.city,
                    r.description AS res_description,
                    (SELECT IFNULL(ROUND(AVG(rating), 1), 4.5) FROM rating_restaurant WHERE res_id = r.restaurant_id) AS rating
                 FROM Restaurant_Menu rm
@@ -335,7 +335,7 @@ router.post('/orders', authMiddleWare, async (req, res) => {
 
         for (const item of items) {
             await conn.execute(
-                `INSERT INTO order_items (order_id, food_id, quantity) VALUES (?, ?, ?)`,
+                `INSERT INTO order_item (order_id, food_id, quantity) VALUES (?, ?, ?)`,
                 [order_id, item.food_id, item.quantity]
             )
             await conn.execute(
@@ -363,11 +363,13 @@ router.get('/orders/:order_id', authMiddleWare, async (req, res) => {
     const userId = req.userId;
     try {
         const getOrders = `
-            SELECT o.order_id, o.price, o.status, o.delivery_address, o.payment_method,
-               o.rejection_reason, o.created_at,
-               r.res_name
+            SELECT o.order_id, o.price, o.status, o.delivery_address, o.delivery_lat, o.delivery_lng, o.payment_method,
+               o.rejection_reason, o.created_at, o.driver_id,
+               r.res_name, r.lat AS res_lat, r.lng AS res_lng,
+               d.user_name AS driver_name, d.lat AS driver_lat, d.lng AS driver_lng
             FROM orders o
             JOIN restaurant r ON o.restaurant_id = r.restaurant_id
+            LEFT JOIN driver d ON o.driver_id = d.driver_id
             WHERE o.order_id = ? AND o.user_id= ?
         `;
         const [orders] = await db.execute(getOrders, [order_id, userId]);
@@ -375,7 +377,7 @@ router.get('/orders/:order_id', authMiddleWare, async (req, res) => {
 
         const [items] = await db.execute(`
             SELECT oi.food_id, oi.quantity, rm.name, rm.price, rm.food_image_path
-            FROM order_items oi
+            FROM order_item oi
             JOIN Restaurant_Menu rm ON oi.food_id = rm.food_id
             WHERE oi.order_id = ?
         `, [order_id]);
@@ -439,35 +441,112 @@ router.post('/orders/:order_id/ratedriver', authMiddleWare, async (req, res) => 
     }
 })
 
-//Coupon Route
+// COUPON ENDPOINTS
 
-// POST /api/user/coupons/validate  — validate coupon
-router.post('/coupon/validate', authMiddleWare, async (req, res) => {
-    const { coupon_code, order_total } = req.body
+// GET /api/user/coupons - Get available coupons
+router.get('/coupons', authMiddleWare, async (req, res) => {
     try {
         const [coupons] = await db.execute(
-            `SELECT coupon_code, discount_percent, min_order_value FROM coupon
-            WHERE coupon_code = ? AND is_active = 1 AND expiry_date >= CURDATE()`,
+            `SELECT c.coupon_name as coupon_code, c.discount_value, c.discount_type, c.expires_on as expiry_date, m.name as food_name, r.res_name
+             FROM food_item_coupon c
+             JOIN Restaurant_Menu m ON c.food_id = m.food_id
+             JOIN restaurant r ON m.res_id = r.restaurant_id
+             WHERE c.is_active = 1 AND c.expires_on >= NOW()`
+        );
+        res.status(200).json(coupons);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Error fetching coupons' });
+    }
+});
+
+// POST /api/user/coupons/validate - Validate coupon against cart items
+router.post('/coupons/validate', authMiddleWare, async (req, res) => {
+    const { coupon_code, cartItems } = req.body;
+
+    if (!cartItems || !Array.isArray(cartItems)) {
+        return res.status(400).json({ message: 'cartItems are required for validation' });
+    }
+
+    try {
+        // Find coupons with the given name
+        const [coupons] = await db.execute(
+            `SELECT c.*, m.price, m.name as food_name
+             FROM food_item_coupon c
+             JOIN Restaurant_Menu m ON c.food_id = m.food_id
+             WHERE c.coupon_name = ? AND c.is_active = 1 AND c.expires_on >= NOW()`,
             [coupon_code]
-        )
-        if (coupons.length === 0) return res.status(404).json({ message: 'Invalid or expired coupon' });
+        );
 
-        const coupon = coupons[0]
+        if (coupons.length === 0) {
+            return res.status(404).json({ message: 'Invalid or expired coupon' });
+        }
 
-        if (order_total < parseFloat(coupon.min_order_value)) return res.status(400).json({ message: 'Order total is less than minimum order value' });
+        let totalDiscount = 0;
+        let applied = false;
+        let discountMsg = '';
 
-        const discount = parseFloat((order_total * parseFloat(coupon.discount_percent) / 100).toFixed(2))
+        // Check each coupon instance (one name might apply to multiple foods, or just one)
+        for (const coupon of coupons) {
+            const cartItem = cartItems.find(item => item.food_id === coupon.food_id);
+            if (cartItem) {
+                let itemDiscount = 0;
+                if (coupon.discount_type === 'PERCENT') {
+                    itemDiscount = (parseFloat(coupon.price) * cartItem.quantity) * (parseFloat(coupon.discount_value) / 100);
+                } else {
+                    // Fixed discount per item or per order? Usually fixed value is for the item quantity or once. 
+                    // Let's assume fixed value is per distinct item entry if matching.
+                    itemDiscount = parseFloat(coupon.discount_value);
+                }
+                totalDiscount += itemDiscount;
+                applied = true;
+                discountMsg += `${coupon.food_name}: ৳${itemDiscount.toFixed(2)} off. `;
+            }
+        }
+
+        if (!applied) {
+            return res.status(400).json({ message: 'This coupon is not valid for any items in your cart' });
+        }
 
         res.status(200).json({
             coupon_code,
-            discount_percent: coupon.discount_percent,
-            discount,
-            message: `Coupon applied! ${coupon.discount_percent}% off`
-        })
+            discount_amount: parseFloat(totalDiscount.toFixed(2)),
+            message: `Coupon applied! ${discountMsg}`
+        });
     } catch (err) {
-        console.error(err)
-        res.status(500).json({ message: 'Error validating coupon' })
+        console.error(err);
+        res.status(500).json({ message: 'Error validating coupon' });
     }
-})
+});
+
+// POST /api/user/orders/:order_id/pickup-accept
+router.post('/orders/:order_id/pickup-accept', authMiddleWare, async (req, res) => {
+    const { order_id } = req.params;
+    const userId = req.userId;
+    try {
+        await db.execute(
+            'UPDATE orders SET status = "PREPARING", delivery_fee = 0 WHERE order_id = ? AND user_id = ? AND status = "PLACED"',
+            [order_id, userId]
+        );
+        res.status(200).json({ message: 'Pickup accepted! Please collect from restaurant later.' });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// POST /api/user/orders/:order_id/pickup-decline
+router.post('/orders/:order_id/pickup-decline', authMiddleWare, async (req, res) => {
+    const { order_id } = req.params;
+    const userId = req.userId;
+    try {
+        await db.execute(
+            'UPDATE orders SET status = "REJECTED", rejection_reason = "User declined pickup after no driver found" WHERE order_id = ? AND user_id = ?',
+            [order_id, userId]
+        );
+        res.status(200).json({ message: 'Order cancelled as requested.' });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
 
 export default router

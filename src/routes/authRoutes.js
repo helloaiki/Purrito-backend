@@ -5,6 +5,24 @@ import db from '../db.js'
 
 const router = express.Router()
 
+// Geocode an address string → { lat, lng } using Nominatim (free, no API key)
+const geocodeAddress = async (...parts) => {
+    const query = parts.filter(Boolean).join(', ');
+    try {
+        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`;
+        const res = await fetch(url, {
+            headers: { 'User-Agent': 'PurritoApp/1.0 (food-service)' }
+        });
+        const data = await res.json();
+        if (data.length > 0) {
+            return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+        }
+    } catch (err) {
+        console.warn('Geocoding failed:', err.message);
+    }
+    return { lat: null, lng: null };
+};
+
 //signin a new user//via the auth/driver/signup//POST
 router.post('/driver/signup', async (req, res) => {
     const { name, email, password, contact, verification, joinDate } = req.body
@@ -16,7 +34,7 @@ router.post('/driver/signup', async (req, res) => {
         const [result] = await db.execute(insertDriver, [name, email, hashedPassword, verification, contact, joinDate])
         console.log(result.insertId)
         const token = jwt.sign({ driverId: result.insertId }, process.env.MYSECRETKEY, { expiresIn: '24h' })
-        return res.status(201).json({ token: token })
+        return res.status(201).json({ token: token, driverId: result.insertId })
     }
     catch (err) {
         console.log(err.message)
@@ -42,7 +60,7 @@ router.post('/driver/login', async (req, res) => {
         }
 
         const token = jwt.sign({ driverId: driver.driver_id }, process.env.MYSECRETKEY, { expiresIn: '24h' })
-        return res.status(200).json({ token })
+        return res.status(200).json({ token, driverId: driver.driver_id })
 
     } catch (err) {
         return res.status(503).json({ message: err.message })
@@ -57,11 +75,15 @@ router.post('/restaurant/signup', async (req, res) => {
     const hashedPassword = bcrypt.hashSync(password, 8)
     const isSignedUpForFoodDonationProgram = foodprogram === "YES" ? true : false;
     try {
-        const insertRestaurant = `INSERT INTO restaurant(res_name,email_address,password,street,city,postal_code,building_name,food_program,res_image_path,description,restaurant_type) VALUES(?,?,?,?,?,?,?,?,?,?,?)`
-        const [result] = await db.execute(insertRestaurant, [name, email, hashedPassword, street, city, postalcode, buildingname, isSignedUpForFoodDonationProgram, resimagepath, description, restauranttype])
+        // Auto-geocode the restaurant address
+        const { lat, lng } = await geocodeAddress(buildingname, street, city, 'Bangladesh');
+        console.log(`Geocoded restaurant address → lat:${lat}, lng:${lng}`);
+
+        const insertRestaurant = `INSERT INTO restaurant(res_name,email_address,password,street,city,postal_code,building_name,food_program,res_image_path,description,restaurant_type,lat,lng) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`
+        const [result] = await db.execute(insertRestaurant, [name, email, hashedPassword, street, city, postalcode, buildingname, isSignedUpForFoodDonationProgram, resimagepath, description, restauranttype, lat, lng])
         console.log(result.insertId)
         const token = jwt.sign({ restaurantId: result.insertId }, process.env.MYSECRETKEY, { expiresIn: '24h' })
-        return res.status(201).json({ token: token })
+        return res.status(201).json({ token: token, restaurantId: result.insertId })
     }
     catch (err) {
         console.log(err.message)
@@ -87,7 +109,7 @@ router.post('/restaurant/login', async (req, res) => {
         }
 
         const token = jwt.sign({ restaurantId: restaurant.restaurant_id }, process.env.MYSECRETKEY, { expiresIn: '24h' })
-        return res.status(200).json({ token })
+        return res.status(200).json({ token, restaurantId: restaurant.restaurant_id })
 
     } catch (err) {
         return res.status(503).json({ message: err.message })
@@ -115,7 +137,7 @@ router.post('/user/signup', async (req, res) => {
             process.env.MYSECRETKEY,
             { expiresIn: '24h' }
         );
-        return res.status(201).json({ token });
+        return res.status(201).json({ token, userId: result.insertId });
     } catch (err) {
         return res.status(500).json({ message: err.message });
     }
@@ -145,7 +167,7 @@ router.post('/user/login', async (req, res) => {
             { expiresIn: '24h' }
         );
 
-        return res.status(200).json({ token });
+        return res.status(200).json({ token, userId: user.user_id });
     } catch (err) {
         return res.status(500).json({ message: err.message });
     }
@@ -156,11 +178,15 @@ router.post('/organization/signup', async (req, res) => {
     const { name, email, password, street, city, postalcode, buildingname } = req.body
     const hashedPassword = bcrypt.hashSync(password, 8)
     try {
-        const insertOrganization = `INSERT INTO organization(org_name,email_address,password,street,city,postal_code,building_name) VALUES(?,?,?,?,?,?,?)`
-        const [result] = await db.execute(insertOrganization, [name, email, hashedPassword, street, city, postalcode, buildingname])
+        // Auto-geocode the organization address
+        const { lat, lng } = await geocodeAddress(buildingname, street, city, 'Bangladesh');
+        console.log(`Geocoded org address → lat:${lat}, lng:${lng}`);
+
+        const insertOrganization = `INSERT INTO organization(org_name,email_address,password,street,city,postal_code,building_name,lat,lng) VALUES(?,?,?,?,?,?,?,?,?)`
+        const [result] = await db.execute(insertOrganization, [name, email, hashedPassword, street, city, postalcode, buildingname, lat, lng])
         console.log(result.insertId)
         const token = jwt.sign({ orgId: result.insertId }, process.env.MYSECRETKEY, { expiresIn: '24h' })
-        return res.status(201).json({ token: token })
+        return res.status(201).json({ token: token, orgId: result.insertId })
     }
     catch (err) {
         console.log(err.message)
@@ -185,7 +211,7 @@ router.post('/organization/login', async (req, res) => {
         }
 
         const token = jwt.sign({ orgId: organization.org_id }, process.env.MYSECRETKEY, { expiresIn: '24h' })
-        return res.status(200).json({ token })
+        return res.status(200).json({ token, orgId: organization.org_id })
 
     } catch (err) {
         return res.status(503).json({ message: err.message })

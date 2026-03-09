@@ -6,11 +6,21 @@ import restaurantRoutes from './routes/restaurantRoutes.js'
 import driverRoutes from './routes/driverRoutes.js'
 import userRoutes from './routes/userRoutes.js'
 import organizationRoutes from './routes/organizationRoutes.js'
+import notificationRoutes from './routes/notificationRoutes.js'
 import WebSocket, { WebSocketServer } from 'ws'
 import { createClient } from 'redis'
 import cors from 'cors';
 
 const app = express()
+
+// Global in-memory storage for WebSocket clients
+export const orderClients = {} // { orderId: Set of ws }
+export const roleClients = {   // { role: { id: Set of ws } }
+    user: {},
+    driver: {},
+    restaurant: {},
+    organization: {}
+}
 
 app.use((req, res, next) => {
     console.log(`${req.method} ${req.url}`);
@@ -27,8 +37,8 @@ const __dirname = dirname(__filename);
 export const redisClient = createClient(
     {
         socket: {
-            host: '127.0.0.1',
-            port: 6379
+            host: process.env.REDIS_HOST || '127.0.0.1',
+            port: process.env.REDIS_PORT || 6379
         }
     }
 );
@@ -38,26 +48,67 @@ redisClient.on('error', (err) => {
 await redisClient.connect()
 
 const wss = new WebSocketServer({ port: 8008 })
-export const clients = {}
 
 wss.on('connection', (ws) => {
-    ws.on('message', (message) => {
-        const { orderId } = JSON.parse(message)
-        if (!clients[orderId]) {
-            clients[orderId] = new Set()
-        }
-        clients[orderId].add(ws)
-        ws.on('close', () => clients[orderId].delete(ws))
-    })
-})
+    let myIdentity = null;
 
-console.log('Websocket server running on port 6739')
+    ws.on('message', (message) => {
+        try {
+            const data = JSON.parse(message);
+
+            // Subscribe to order updates (tracking)
+            if (data.type === 'ORDER_SUBSCRIBE' && data.orderId) {
+                if (!orderClients[data.orderId]) {
+                    orderClients[data.orderId] = new Set();
+                }
+                orderClients[data.orderId].add(ws);
+                ws.orderId = data.orderId;
+                console.log(`WS: Client subscribed to order ${data.orderId}`);
+            }
+
+            // Identify for notifications
+            if (data.type === 'IDENTITY_REGISTER' && data.role && data.id) {
+                const { role, id } = data;
+                if (roleClients[role]) {
+                    if (!roleClients[role][id]) {
+                        roleClients[role][id] = new Set();
+                    }
+                    roleClients[role][id].add(ws);
+                    myIdentity = { role, id };
+                    console.log(`WS: Registered identity for ${role} #${id}`);
+                }
+            }
+        } catch (e) {
+            console.error('WS parse error:', e);
+        }
+    });
+
+    ws.on('close', () => {
+        if (ws.orderId && orderClients[ws.orderId]) {
+            orderClients[ws.orderId].delete(ws);
+        }
+        if (myIdentity && roleClients[myIdentity.role] && roleClients[myIdentity.role][myIdentity.id]) {
+            roleClients[myIdentity.role][myIdentity.id].delete(ws);
+        }
+    });
+});
+
+export const notifyRole = (role, id, data) => {
+    if (roleClients[role] && roleClients[role][id]) {
+        const payload = JSON.stringify({ type: 'NOTIFICATION', ...data });
+        roleClients[role][id].forEach(ws => {
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(payload);
+            }
+        });
+    }
+}
+
+console.log('Websocket server running on port 8008')
 
 app.use(express.static(path.join(__dirname, '../public')))
-
 app.use(cors())
 app.use(express.json());
-
 
 //routes
 app.use('/auth', authRoutes)
@@ -65,6 +116,7 @@ app.use('/api/restaurant', restaurantRoutes)
 app.use('/api/user', userRoutes)
 app.use('/api/organization', organizationRoutes)
 app.use('/driver', driverRoutes)
+app.use('/api/notifications', notificationRoutes)
 
 app.use(express.static(path.join(__dirname, '../public')))
 

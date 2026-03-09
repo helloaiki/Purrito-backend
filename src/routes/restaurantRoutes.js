@@ -61,26 +61,23 @@ router.post('/leftover', authMiddleWare, async (req, res) => {
     }
 });
 
-router.post('/setlocation',authMiddleWare,async(req,res)=>{
-    const{lat,long}=req.body
-    const resId=req.userId
-    const setLocation=`UPDATE restaurant
+router.post('/setlocation', authMiddleWare, async (req, res) => {
+    const { lat, long } = req.body
+    const resId = req.userId
+    const setLocation = `UPDATE restaurant
     SET lat=?,lng=?
     WHERE restaurant_id=?
     `
-    try
-    {
-        const [result]=await db.execute(setLocation,[lat,long,resId])
-        if(result.affectedRows==0)
-        {
-            return res.status(400).json({message:'Error in setting the location coordinates'})
+    try {
+        const [result] = await db.execute(setLocation, [lat, long, resId])
+        if (result.affectedRows == 0) {
+            return res.status(400).json({ message: 'Error in setting the location coordinates' })
         }
 
-        return res.status(200).json({message:'Successfully updated restaurant'})
+        return res.status(200).json({ message: 'Successfully updated restaurant' })
     }
-    catch(err)
-    {
-        return res.status(500).json({message:err.message})
+    catch (err) {
+        return res.status(500).json({ message: err.message })
     }
 })
 
@@ -462,4 +459,61 @@ router.get('/menu/categories', authMiddleWare, async (req, res) => {
     }
 })
 
-export default router
+import { startDriverSearch } from '../utils/fulfillment.js';
+import { notifyRole } from '../server.js';
+
+// PUT /api/restaurant/orders/:id/status
+router.put('/orders/:id/status', authMiddleWare, async (req, res) => {
+    const resId = req.userId;
+    const orderId = req.params.id;
+    const { status, rejection_reason } = req.body;
+
+    if (!['PLACED', 'REJECTED', 'PREPARING'].includes(status)) {
+        return res.status(400).json({ message: 'Invalid status update for restaurant' });
+    }
+
+    try {
+        const [order] = await db.query('SELECT user_id, status FROM orders WHERE order_id = ? AND restaurant_id = ?', [orderId, resId]);
+        if (order.length === 0) {
+            return res.status(404).json({ message: 'Order not found or unauthorized' });
+        }
+
+        const userId = order[0].user_id;
+
+        await db.execute(
+            'UPDATE orders SET status = ?, rejection_reason = ? WHERE order_id = ?',
+            [status, rejection_reason || null, orderId]
+        );
+
+        const title = status === 'REJECTED' ? 'Order Rejected' : 'Order Accepted';
+        const message = status === 'REJECTED'
+            ? `Sorry, your order #${orderId} was rejected: ${rejection_reason}`
+            : `Great news! Your order #${orderId} has been accepted and is being prepared.`;
+
+        const [notif] = await db.execute(
+            'INSERT INTO notifications (user_id, role, title, message, type) VALUES (?, "user", ?, ?, "ORDER_STATUS")',
+            [userId, title, message]
+        );
+
+        notifyRole('user', userId, {
+            notif_id: notif.insertId,
+            order_id: orderId,
+            title,
+            message,
+            status,
+            type: 'ORDER_STATUS'
+        });
+
+        if (status === 'PLACED' || status === 'PREPARING') {
+            startDriverSearch(orderId);
+        }
+
+        res.json({ message: `Order ${status.toLowerCase()} successfully` });
+
+    } catch (err) {
+        console.error('Error updating order status:', err);
+        res.status(500).json({ message: 'Error updating order status' });
+    }
+});
+
+export default router;
