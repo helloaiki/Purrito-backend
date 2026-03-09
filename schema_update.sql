@@ -11,6 +11,11 @@ ALTER TABLE restaurant
 ADD COLUMN lat DECIMAL(10,8) NULL,
 ADD COLUMN lng DECIMAL(11,8) NULL;
 
+--Add location to organization table
+ALTER TABLE organization
+ADD COLUMN lat DECIMAL(10,8) NULL,
+ADD COLUMN lng DECIMAL(11,8) NULL;
+
 -- Add last known location to user table
 ALTER TABLE user
 ADD COLUMN last_lat DECIMAL(10,8) NULL,
