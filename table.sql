@@ -254,16 +254,27 @@ USE purrito;
 CREATE TABLE food_item_coupon
 (
     coupon_id INT AUTO_INCREMENT,
-    food_id INT,
+    restaurant_id INT,
     coupon_name VARCHAR(100) NOT NULL,
     discount_type ENUM('PERCENT','FIXED') NOT NULL,
     discount_value INT NOT NULL,
+    times_used INT DEFAULT 0,
+    PRIMARY KEY(coupon_id),
+    FOREIGN KEY(restaurant_id) REFERENCES restaurant(restaurant_id)
+);
+
+--table for actually assigning coupons to food items
+USE PURRITO;
+CREATE TABLE couponed_items
+(
+    food_id INT,
+    coupon_id INT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     expires_on DATETIME NOT NULL,
     is_active BOOLEAN DEFAULT TRUE,
-    times_used INT DEFAULT 0,
-    PRIMARY KEY(coupon_id),
-    FOREIGN KEY(food_id) REFERENCES Restaurant_Menu(food_id) ON DELETE CASCADE
+    PRIMARY KEY(food_id,coupon_id),
+    FOREIGN KEY(food_id) REFERENCES Restaurant_Menu(food_id) ON DELETE CASCADE,
+    FOREIGN KEY(coupon_id) REFERENCES food_item_coupon(coupon_id) ON DELETE CASCADE
 );
 
 
@@ -403,6 +414,22 @@ BEGIN
 END $$
 
 DELIMITER ;
+
+--7
+--event for deactivating all coupons beyond their expiry date
+DELIMITER $$
+
+CREATE EVENT deactivate_coupon
+ON SCHEDULE EVERY 1 HOUR
+DO
+BEGIN
+    UPDATE couponed_items
+    SET is_active=FALSE
+    WHERE expires_on<=NOW() AND is_active=TRUE;
+END $$
+
+DELIMITER ;
+
 
 
 

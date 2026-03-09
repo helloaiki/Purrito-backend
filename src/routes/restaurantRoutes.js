@@ -4,21 +4,7 @@ import authMiddleWare from '../middleware/authMiddleware.js'
 
 const router = express.Router()
 
-// GET /api/restaurant/menu
-// router.get('/menu', async (req, res) => {
-//     try {
-//         const getMenu = `
-//             SELECT rm.*, r.res_name
-//             FROM Restaurant_Menu rm
-//             JOIN restaurant r ON rm.res_id = r.restaurant_id
-//         `
-//         const [menuItems] = await db.execute(getMenu)
-//         res.status(200).json(menuItems)
-//     } catch (err) {
-//         console.error(err)
-//         res.status(500).json({ message: 'Error fetching menu' })
-//     }
-// });
+
 
 
 //is also related to restaurants 
@@ -61,10 +47,18 @@ router.post('/leftover', authMiddleWare, async (req, res) => {
     }
 });
 
+<<<<<<< HEAD
 router.post('/setlocation', authMiddleWare, async (req, res) => {
     const { lat, long } = req.body
     const resId = req.userId
     const setLocation = `UPDATE restaurant
+=======
+//sets location of the restaurant
+router.post('/setlocation',authMiddleWare,async(req,res)=>{
+    const{lat,long}=req.body
+    const resId=req.userId
+    const setLocation=`UPDATE restaurant
+>>>>>>> a89e7c99873b125e82fa8c5b408761befbe1fd94
     SET lat=?,lng=?
     WHERE restaurant_id=?
     `
@@ -85,7 +79,7 @@ router.post('/setlocation', authMiddleWare, async (req, res) => {
 
 //these are related to restaurant only
 
-
+//delete account
 router.delete('/deleteaccount', authMiddleWare, async (req, res) => {
     const resId = req.userId
     try {
@@ -107,7 +101,7 @@ router.delete('/deleteaccount', authMiddleWare, async (req, res) => {
     }
 })
 
-
+//adds contact information
 router.post('/addcontact', authMiddleWare, async (req, res) => {
     const resId = req.userId
     const { contact } = req.body
@@ -130,6 +124,9 @@ router.post('/addcontact', authMiddleWare, async (req, res) => {
     }
 })
 
+
+
+//gets total revenue for restaurant
 router.get('/totalrevenue', authMiddleWare, async (req, res) => {
     const resId = req.userId
     try {
@@ -142,6 +139,7 @@ router.get('/totalrevenue', authMiddleWare, async (req, res) => {
     }
 })
 
+//gets revenue for a particular time
 router.get('/revenueparticulartime', authMiddleWare, async (req, res) => {
     const { monthReq, yearReq } = req.body
     const resId = req.userId
@@ -162,7 +160,7 @@ router.get('/revenueparticulartime', authMiddleWare, async (req, res) => {
     }
 })
 
-
+//add a menu item
 router.post('/addmenuitem', authMiddleWare, async (req, res) => {
     const resId = req.userId
     const { name, coursename, price, food_image_path } = req.body
@@ -178,6 +176,8 @@ router.post('/addmenuitem', authMiddleWare, async (req, res) => {
 
 })
 
+
+//delete a menu item
 router.delete('/deletemenuitem', authMiddleWare, async (req, res) => {
     const resId = req.userId
     const { foodId } = req.body
@@ -195,6 +195,8 @@ router.delete('/deletemenuitem', authMiddleWare, async (req, res) => {
     }
 })
 
+
+//reject an order but only when status is waiting or placed
 router.put('/rejectorder', authMiddleWare, async (req, res) => {
     const resId = req.userId
     const { orderId, messageToCustomer } = req.body
@@ -215,7 +217,7 @@ router.put('/rejectorder', authMiddleWare, async (req, res) => {
     }
 })
 
-
+//get most ordered item for the restaurant
 router.get('/mostordereditem', authMiddleWare, async (req, res) => {
     const resId = req.userId
     const { howMany } = req.body
@@ -236,7 +238,7 @@ router.get('/mostordereditem', authMiddleWare, async (req, res) => {
     }
 })
 
-
+//gets the menu for the restaurant
 router.get('/menu/items', authMiddleWare, async (req, res) => {
     const resId = req.userId
     try {
@@ -253,6 +255,7 @@ router.get('/menu/items', authMiddleWare, async (req, res) => {
     }
 })
 
+//gets details of a particular menu item
 router.get('/menu/item/details/:id', authMiddleWare, async (req, res) => {
     const resId = req.userId
     const foodId = req.params.id
@@ -271,6 +274,8 @@ router.get('/menu/item/details/:id', authMiddleWare, async (req, res) => {
     }
 })
 
+
+//can update the details of a menu item
 router.put('/menu/item/update/:id', authMiddleWare, async (req, res) => {
     const resId = req.userId;
     const { foodId } = req.body;
@@ -322,7 +327,7 @@ router.put('/menu/item/update/:id', authMiddleWare, async (req, res) => {
 });
 
 
-
+//gets rating for the restaurant
 router.get('/rating', authMiddleWare, async (req, res) => {
     const resId = req.userId;
     try {
@@ -344,7 +349,7 @@ router.get('/rating', authMiddleWare, async (req, res) => {
     }
 });
 
-
+//gets reviews for the restaurant
 router.get('/reviews', authMiddleWare, async (req, res) => {
     const resId = req.userId
 
@@ -382,7 +387,6 @@ router.get('/orders/new', authMiddleWare, async (req, res) => {
 })
 
 //gets orders that are being prepared currently
-
 router.get('/orders/ongoing', authMiddleWare, async (req, res) => {
     const resId = req.userId
     try {
@@ -399,6 +403,7 @@ router.get('/orders/ongoing', authMiddleWare, async (req, res) => {
     }
 })
 
+//gets the menu items present in a particular order
 router.get('/orders/:id/items', authMiddleWare, async (req, res) => {
     const resId = req.userId
     const orderId = req.params.id
@@ -421,6 +426,7 @@ router.get('/orders/:id/items', authMiddleWare, async (req, res) => {
     }
 })
 
+//gets some priliminary info on an order
 router.get('/orders/:id', authMiddleWare, async (req, res) => {
     const resId = req.userId
     const orderId = req.params.id
@@ -441,7 +447,7 @@ router.get('/orders/:id', authMiddleWare, async (req, res) => {
     }
 })
 
-
+//gets all the categories of a restaurant menu
 router.get('/menu/categories', authMiddleWare, async (req, res) => {
     const resId = req.userId
     try {
@@ -459,6 +465,7 @@ router.get('/menu/categories', authMiddleWare, async (req, res) => {
     }
 })
 
+<<<<<<< HEAD
 import { startDriverSearch } from '../utils/fulfillment.js';
 import { notifyRole } from '../server.js';
 
@@ -517,3 +524,239 @@ router.put('/orders/:id/status', authMiddleWare, async (req, res) => {
 });
 
 export default router;
+=======
+
+router.post('/addcoupon',authMiddleWare,async(req,res)=>{
+    const resId=req.userId
+    const{couponName,discountType,discountValue}=req.body
+    if((discountType=='PERCENT' && (discountValue<0 || discountValue>100)) || (discountType=='FIXED' && discountValue<0))
+    {
+        return res.status(400).json({message:'Invalid discount values'})
+    }
+    
+    const addCoupon=`
+     INSERT INTO food_item_coupon(restaurant_id,coupon_name,discount_type,discount_value) VALUES(?,?,?,?)
+    `
+    try
+    {
+        const[result]=await db.execute(addCoupon,[resId,couponName,discountType,discountValue])
+        if(result.affectedRows==0)
+        {
+            return res.status(404).json({message:'Error in adding coupon'})
+        }
+        return res.status(200).json({message:'Successfully added coupon to the menu item'})
+    }
+    catch(err)
+    {
+        return res.status(500).json({message:err.message})
+    }
+})
+
+router.post('/addcoupon/:id',authMiddleWare,async(req,res)=>{
+    const resId=req.userId
+    const{couponId,expiresAt}=req.body
+    const foodId=req.params.id
+    const checkEligibility=`
+    SELECT COUNT(*) AS resCount
+    FROM Restaurant_Menu
+    WHERE food_id=? AND res_id=?
+    `
+
+
+    const addCouponToItem=`
+     INSERT INTO couponed_items(food_id,coupon_id,expires_on) VALUES(?,?,?)
+    `
+
+    try
+    {
+        const [tester]=await db.query(checkEligibility,[foodId,resId])
+        if(tester[0].resCount==0)
+        {
+            return res.status(404).json({message:'Not authorized to give a coupon on menu item'})
+        }
+
+        const[result]=await db.execute(addCouponToItem,[foodId,couponId,discountType,expiresAt])
+        if(result.affectedRows==0)
+        {
+            return res.status(404).json({message:'Error in adding coupon'})
+        }
+        return res.status(200).json({message:'Successfully added coupon to the menu item'})
+    }
+    catch(err)
+    {
+        return res.status(500).json({message:err.message})
+    }
+
+})
+
+router.delete('/deletecoupon',authMiddleWare,async(req,res)=>{
+    const resId=req.userId
+    const{couponId}=req.body
+    
+    const deleteCoupon=`
+    DELETE FROM food_item_coupon
+    WHERE coupon_id=? AND restaurant_id=?
+    `
+    try
+    {
+
+        const[result]=await db.execute(deleteCoupon,[couponId,resId])
+        if(result.affectedRows==0)
+        {
+            return res.status(404).json({message:'Error in deleting coupon'})
+        }
+        return res.status(200).json({message:'Successfully deleted coupon'})
+
+    }
+    catch(err)
+    {
+        return res.status(500).json({message:err.message})
+    }
+})
+
+router.put('/updatecoupon',authMiddleWare,async(req,res)=>{
+    const resId=req.userId
+    const{couponId,discountType,discountValue}=req.body
+    if((discountType=='PERCENT' && (discountValue<0 || discountValue>100)) || (discountType=='FIXED' && discountValue<0))
+    {
+        return res.status(400).json({message:'Invalid discount values'})
+    }
+    const updateCoupon=`
+    UPDATE food_item_coupon 
+    SET discount_type=?,discount_value=?
+    WHERE restaurant_id=? AND coupon_id=?
+    `
+    try
+    {
+        const[result]=await db.execute(updateCoupon,[discountType,discountValue,resId,couponId])
+        if(result.affectedRows==0)
+        {
+            return res.status(404).json({message:'Error in updating coupon'})
+        }
+        return res.status(200).json({message:'Successfully updated coupon'})
+
+    }
+    catch(err)
+    {
+        return res.status(500).json({message:err.message})
+    }
+})
+
+
+router.get('/getCoupons',authMiddleWare,async(req,res)=>{
+    const resId=req.userId
+    const getAllCoupons=`
+    SELECT *
+    FROM food_item_coupon
+    WHERE restaurant_id=?
+    `
+    try
+    {
+        const[result]=await db.query(getAllCoupons,[resId])
+        return res.status(200).json({result})
+    }
+    catch(err)
+    {
+        return res.status(500).json({message:err.message})
+    }
+})
+
+router.get('/getCoupons/:ordered',authMiddleWare,async(req,res)=>{
+    const resId=req.userId
+    const order=req.params.ordered
+    const getCouponsOrdered=``;
+    if(order=='asc')
+    {
+        getCouponsOrdered=`
+        SELECT *
+        FROM food_item_coupon
+        WHERE restaurant_id=?
+        ORDER BY times_used 
+        `
+    }
+    else
+    {
+        getCouponsOrdered=`
+        SELECT *
+        FROM food_item_coupon
+        WHERE restaurant_id=?
+        ORDER BY times_used DESC
+        `
+    }
+    try
+    {
+        const[result]=await db.query(getCouponsOrdered,[resId])
+        return res.status(200).json({result})
+    }
+    catch(err)
+    {
+        return res.status(500).json({message:err.message})
+    }
+})
+
+router.get('/couponeditems',authMiddleWare,async(req,res)=>{
+    const resId=req.userId
+    const getCouponedItems=`
+    SELECT r.name,r.food_image_path,a.coupon_name,a.discount_type,a.discount_value,a.coupon_id,r.food_id
+    FROM Restaurant_Menu r
+    JOIN food_item_coupon a ON r.res_id=a.restaurant_id
+    JOIN couponed_items c ON c.food_id=r.food_id
+    WHERE a.restaurant_id=? AND c.is_active=TRUE
+    `
+    try
+    {
+        const[result]=await db.query(getCouponedItems,[resId])
+        return res.status(200).json({result})
+    }
+    catch(err)
+    {
+        return res.status(500).json({message:err.message})
+    }
+})
+
+router.put('/deactivatecoupon/:foodid/:couponid',authMiddleWare,async(req,res)=>{
+    const resId=req.userId
+    const foodId=req.params.foodid
+    const couponId=req.params.couponid
+    const checkEligibility=`
+    SELECT COUNT(*) AS resCount
+    FROM Restaurant_Menu
+    WHERE food_id=? AND res_id=?
+    `
+    const deactivateCoupon=`
+    UPDATE couponed_items
+    SET is_active=FALSE
+    WHERE food_id=? AND is_active=TRUE AND coupon_id=?
+    `
+    try
+    {
+        const [tester]=await db.query(checkEligibility,[foodId,resId])
+        if(tester[0].resCount==0)
+        {
+            return res.status(404).json({message:'Not authorized to give a coupon on menu item'})
+        }
+
+        const[result]=await db.execute(deactivateCoupon,[foodId,couponId])
+
+        if(result.affectedRows==0)
+        {
+            return res.status(404).json({message:'Coupon could not be deactivated'})
+        }
+
+        return res.status(200).json({message:'Coupon deactivated successfully'})
+
+
+    }
+    catch(err)
+    {
+        return res.status(500).json({message:err.message})
+    }
+})
+
+
+
+
+
+
+export default router
+>>>>>>> a89e7c99873b125e82fa8c5b408761befbe1fd94
