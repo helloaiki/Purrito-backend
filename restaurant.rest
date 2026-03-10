@@ -32,3 +32,32 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyZXN0YXVyYW50SWQiO
 ###
 DELETE http://localhost:5003/api/restaurant/deleteaccount
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyZXN0YXVyYW50SWQiOjEsImlhdCI6MTc3MTUyNTY4MiwiZXhwIjoxNzcxNjEyMDgyfQ.BcS7wnOSjXnW-j6Z0OxWzwPiMj6AQqgc8nhRfQ_2Bi8
+
+###
+POST http://localhost:5003/auth/restaurant/signup
+Content-Type: application/json
+
+{
+  "name": "Spice Garden",
+  "email": "spicegarden@example.com",
+  "password": "SecurePass123",
+  "street": "Dhanmondi 27",
+  "city": "Dhaka",
+  "postalcode": "1209",
+  "buildingname": "Green Plaza",
+  "foodprogram": "NO",
+  "resimagepath": "/images/spiceGarden.png",
+  "description": "Authentic Indian and Thai cuisine",
+  "restauranttype": "Casual Dining"
+}
+
+
+###
+POST http://localhost:5003/api/restaurant/setlocation
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyZXN0YXVyYW50SWQiOjIsImlhdCI6MTc3MjM4NzgyOCwiZXhwIjoxNzcyNDc0MjI4fQ.OI3m7IAM7rNJ-0bwuj8D3QlI6iiGvE3qcaE-pZY2KBo
+Content-Type: application/json
+
+{
+   "lat":"23.7465",
+   "long":"90.3760"
+}

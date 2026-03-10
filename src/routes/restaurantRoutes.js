@@ -506,11 +506,24 @@ router.put('/orders/:id/status', authMiddleWare, async (req, res) => {
             startDriverSearch(orderId);
         }
 
+<<<<<<< HEAD
         res.json({ message: `Order ${status.toLowerCase()} successfully` });
 
     } catch (err) {
         console.error('Error updating order status:', err);
         res.status(500).json({ message: 'Error updating order status' });
+=======
+        const[result]=await db.execute(deactivateCoupon,[foodId,couponId])
+
+        if(result.affectedRows==0)
+        {
+            return res.status(404).json({message:'Coupon could not be deactivated'})
+        }
+
+        return res.status(200).json({message:'Coupon deactivated successfully'})
+
+s
+>>>>>>> 4457ab9 (added coupon)
     }
 });
 
