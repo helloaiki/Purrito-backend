@@ -333,11 +333,32 @@ router.post('/orders', authMiddleWare, async (req, res) => {
 
         const order_id = orderResult.insertId;
 
+        //Im gonna update the coupon count here // but the price reduction has to be implemented in front end
+        const selectCouponCountIfAny=`
+        SELECT coupon_id 
+        FROM couponed_items 
+        WHERE food_id=?
+        `
+        const updateCouponIfAny=`
+        UPDATE food_item_coupon
+        SET times_used=times_used+?
+        WHERE coupon_id=?
+        `
+
         for (const item of items) {
             await conn.execute(
                 `INSERT INTO order_item (order_id, food_id, quantity) VALUES (?, ?, ?)`,
                 [order_id, item.food_id, item.quantity]
             )
+
+            //updating coupons
+            const[coupons]=await conn.query(selectCouponCountIfAny,[item.food_id])
+            for(const c of coupons)
+            {
+                await conn.execute(updateCouponIfAny,[item.quantity,c.coupon_id])
+            }
+
+
             await conn.execute(
                 `UPDATE Restaurant_Menu SET quantity_sold = quantity_sold + ? WHERE food_id=?`,
                 [item.quantity, item.food_id]
