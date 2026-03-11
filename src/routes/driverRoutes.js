@@ -307,7 +307,24 @@ router.put('/acceptOrder', authMiddleWare, async (req, res) => {
         `
         const [result] = await db.execute(acceptOrderAsDriver, [driverId, orderId])
         if (result.affectedRows == 0) {
-            return res.status(409).json({ message: 'Error in assigning you as driver' })
+            return res.status(409).json({ message: 'Order already taken or not available' })
+        }
+
+        await db.execute(
+            'INSERT INTO driver_assignment_logs (order_id, driver_id, status, responded_at) VALUES (?,?,?,NOW())',
+            [orderId, driverId, 'ACCEPTED']
+        );
+
+        const [user] = await db.query(`SELECT user_id FROM orders WHERE order_id=?`, [orderId]);
+        if (user.length > 0) {
+            const title = "Driver Assigned!";
+            const message = `A driver has been assigned to your order #${orderId} and is on the way to the restaurant.`;
+            await db.execute(
+                `INSERT INTO notifications (user_id, role, title, message, type)
+                VALUES (?,?,?,?,?)`,
+                [user[0].user_id, 'user', title, message, 'DRIVER_ASSIGNED']
+            );
+            notifyRole('user', user[0].user_id, { title, message, type: "DRIVER_ASSIGNED", order_id: orderId });
         }
 
         return res.status(200).json({ message: 'Successfully appointed as driver' })
