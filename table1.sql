@@ -76,6 +76,7 @@ CREATE TABLE contact_restaurant
 );
 
 -- Menu Table
+--change made - Discount doesnt make sense here in the menu table
 CREATE TABLE Restaurant_Menu
 (
     res_id INT,
@@ -83,7 +84,6 @@ CREATE TABLE Restaurant_Menu
     name VARCHAR(50),
     course_name VARCHAR(20),
     price DECIMAL(6,2),
-    discount_percent DECIMAL(5,2) DEFAULT 0,
     is_available BOOLEAN DEFAULT 0,
     quantity_sold INT DEFAULT 0,
     food_image_path VARCHAR(512),
@@ -217,20 +217,42 @@ CREATE TABLE leftover_available
     FOREIGN KEY(org_id) REFERENCES organization(org_id) ON DELETE CASCADE
 );
 
--- Table for restaurant issued coupons
+--table for restaurant issued coupons
+USE purrito;
 CREATE TABLE food_item_coupon
 (
     coupon_id INT AUTO_INCREMENT,
-    food_id INT,
+    restaurant_id INT,
     coupon_name VARCHAR(100) NOT NULL,
     discount_type ENUM('PERCENT','FIXED') NOT NULL,
     discount_value INT NOT NULL,
+    times_used INT DEFAULT 0,
+    PRIMARY KEY(coupon_id),
+    FOREIGN KEY(restaurant_id) REFERENCES restaurant(restaurant_id)
+);
+
+--table for actually assigning coupons to food items
+USE PURRITO;
+CREATE TABLE couponed_items
+(
+    food_id INT,
+    coupon_id INT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     expires_on DATETIME NOT NULL,
     is_active BOOLEAN DEFAULT TRUE,
-    times_used INT DEFAULT 0,
-    PRIMARY KEY(coupon_id),
-    FOREIGN KEY(food_id) REFERENCES Restaurant_Menu(food_id) ON DELETE CASCADE
+    PRIMARY KEY(food_id,coupon_id),
+    FOREIGN KEY(food_id) REFERENCES Restaurant_Menu(food_id) ON DELETE CASCADE,
+    FOREIGN KEY(coupon_id) REFERENCES food_item_coupon(coupon_id) ON DELETE CASCADE
+);
+
+
+--Table for coupons given by website
+CREATE TABLE coupon (
+    coupon_code VARCHAR(20) PRIMARY KEY,
+    discount_percent DECIMAL(5,2) NOT NULL,
+    min_order_value DECIMAL(7,2) DEFAULT 0,
+    expiry_date DATE NOT NULL,
+    is_active BOOLEAN DEFAULT 1
 );
 
 -- Payment credentials
@@ -367,5 +389,19 @@ BEGIN
     DELETE FROM leftover_available
     WHERE created_at < NOW() - INTERVAL 48 HOUR AND org_id IS NULL;
 END$$
+
+DELIMITER ;
+
+--event for deactivating all coupons beyond their expiry date
+DELIMITER $$
+
+CREATE EVENT deactivate_coupon
+ON SCHEDULE EVERY 1 HOUR
+DO
+BEGIN
+    UPDATE couponed_items
+    SET is_active=FALSE
+    WHERE expires_on<=NOW() AND is_active=TRUE;
+END $$
 
 DELIMITER ;

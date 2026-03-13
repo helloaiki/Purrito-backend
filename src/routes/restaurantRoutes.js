@@ -47,6 +47,53 @@ router.post('/leftover', authMiddleWare, async (req, res) => {
     }
 });
 
+router.post('/addfoodcharacteristic',authMiddleWare,async(req,res)=>{
+    const resId=req.userId
+    const {foodId,characteristics}=req.body
+
+    if(!Array.isArray(characteristics))
+    {
+        return res.status.json({message:'Characteristics must be in an array'})
+    }
+
+    const uniqueCharacteristics=[...new Set(characteristics.map(c=>c.trim()).filter(c=>c!=" " && c!=""))]
+    const checkEligibility=`
+    SELECT COUNT(*) AS resCount
+    FROM Restaurant_Menu
+    WHERE food_id=? AND res_id=?
+    `
+    const insertCharacteristic=`
+    INSERT INTO food_characteristic(res_id,food_id,trait) VALUES(?,?,?)
+    `
+    try
+    {
+        const[verification]=await db.query(checkEligibility,[foodId,resId])
+        if(verification[0].resCount==0)
+        {
+            return res.status(404).json({message:'Not authorized'})
+        }
+
+        for(let c of uniqueCharacteristics)
+        {
+            let[result]=await db.execute(insertCharacteristic,[resId,foodId,c])
+            if(result.affectedRows==0)
+            {
+                return res.status(404).json({message:'Could not update food characteristics table'})
+            }
+        }
+
+        return res.status(200).json({message:'Added food characteristics successfully'})
+        
+    }
+    catch(err)
+    {
+        return res.status(500).json({message:err.message})
+    }
+    
+})
+
+
+
 router.post('/setlocation', authMiddleWare, async (req, res) => {
     const { lat, long } = req.body
     const resId = req.userId
@@ -513,5 +560,283 @@ router.put('/orders/:id/status', authMiddleWare, async (req, res) => {
         res.status(500).json({ message: 'Error updating order status' });
     }
 });
+
+
+//coupon stuff
+router.post('/addcoupon',authMiddleWare,async(req,res)=>{
+    const resId=req.userId
+    const{couponName,discountType,discountValue}=req.body
+    if((discountType=='PERCENT' && (discountValue<0 || discountValue>100)) || (discountType=='FIXED' && discountValue<0))
+    {
+        return res.status(400).json({message:'Invalid discount values'})
+    }
+    
+    const addCoupon=`
+     INSERT INTO food_item_coupon(restaurant_id,coupon_name,discount_type,discount_value) VALUES(?,?,?,?)
+    `
+    try
+    {
+        const[result]=await db.execute(addCoupon,[resId,couponName,discountType,discountValue])
+        if(result.affectedRows==0)
+        {
+            return res.status(404).json({message:'Error in adding coupon'})
+        }
+        return res.status(200).json({message:'Successfully added coupon to the menu item'})
+    }
+    catch(err)
+    {
+        return res.status(500).json({message:err.message})
+    }
+})
+
+router.post('/addcoupon/:id',authMiddleWare,async(req,res)=>{
+    const resId=req.userId
+    const{couponId,expiresAt}=req.body
+    const foodId=req.params.id
+    const checkEligibility=`
+    SELECT COUNT(*) AS resCount
+    FROM Restaurant_Menu
+    WHERE food_id=? AND res_id=?
+    `
+
+    const checkCoupon=`
+    SELECT c.discount_type,c.discount_value
+    FROM food_item_coupon c
+    WHERE c.coupon_id=?
+    `
+
+    const checkPrice=`
+    SELECT f.price
+    FROM Restaurant_Menu f
+    WHERE f.food_id=?
+    `
+
+
+    const addCouponToItem=`
+     INSERT INTO couponed_items(food_id,coupon_id,expires_on) VALUES(?,?,?)
+    `
+
+    try
+    {
+        const [tester]=await db.query(checkEligibility,[foodId,resId])
+        if(tester[0].resCount==0)
+        {
+            return res.status(404).json({message:'Not authorized to give a coupon on menu item'})
+        }
+
+        const[tester2]=await db.query(checkCoupon,[couponId])
+        if (!tester2[0]) 
+        {
+            return res.status(404).json({ message: 'Coupon not found for this food' });
+        }
+
+        const[tester3]=await db.query(checkPrice,[foodId])
+
+        if (!tester3[0]) 
+        {
+            return res.status(404).json({ message: 'Food item not found' });
+        }
+
+        if(tester2[0].discount_type=='FIXED' && parseInt(tester2[0].discount_value)>parseFloat(tester3[0].price))
+        {
+            return res.status(400).json({message:'Discount cannot be greater than food price'})
+        }
+
+        const[result]=await db.execute(addCouponToItem,[foodId,couponId,discountType,expiresAt])
+        if(result.affectedRows==0)
+        {
+            return res.status(404).json({message:'Error in adding coupon'})
+        }
+        return res.status(200).json({message:'Successfully added coupon to the menu item'})
+    }
+    catch(err)
+    {
+        return res.status(500).json({message:err.message})
+    }
+
+})
+
+router.get('/getcoupons/:foodid',authMiddleWare,async(req,res)=>{
+    const foodId=req.params.foodid
+    const getCouponsAttachedToFoodItem=`
+    SELECT c.coupon_id,cc.coupon_name,cc.discount_type,cc.discount_value 
+    FROM food_item_coupon c
+    JOIN couponed_items cc ON c.coupon_id=cc.coupon_id
+    WHERE cc.food_id=?
+    `
+    try
+    {
+        const[result]=await db.query(getCouponsAttachedToFoodItem,[foodId])
+        return res.status(200).json({result})
+    }
+    catch(err)
+    {
+        return res.status(500).json({message:err.message})
+    }
+})
+
+router.delete('/deletecoupon',authMiddleWare,async(req,res)=>{
+    const resId=req.userId
+    const{couponId}=req.body
+    
+    const deleteCoupon=`
+    DELETE FROM food_item_coupon
+    WHERE coupon_id=? AND restaurant_id=?
+    `
+    try
+    {
+
+        const[result]=await db.execute(deleteCoupon,[couponId,resId])
+        if(result.affectedRows==0)
+        {
+            return res.status(404).json({message:'Error in deleting coupon'})
+        }
+        return res.status(200).json({message:'Successfully deleted coupon'})
+
+    }
+    catch(err)
+    {
+        return res.status(500).json({message:err.message})
+    }
+})
+
+router.put('/updatecoupon',authMiddleWare,async(req,res)=>{
+    const resId=req.userId
+    const{couponId,discountType,discountValue}=req.body
+    if((discountType=='PERCENT' && (discountValue<0 || discountValue>100)) || (discountType=='FIXED' && discountValue<0))
+    {
+        return res.status(400).json({message:'Invalid discount values'})
+    }
+    const updateCoupon=`
+    UPDATE food_item_coupon 
+    SET discount_type=?,discount_value=?
+    WHERE restaurant_id=? AND coupon_id=?
+    `
+    try
+    {
+        const[result]=await db.execute(updateCoupon,[discountType,discountValue,resId,couponId])
+        if(result.affectedRows==0)
+        {
+            return res.status(404).json({message:'Error in updating coupon'})
+        }
+        return res.status(200).json({message:'Successfully updated coupon'})
+
+    }
+    catch(err)
+    {
+        return res.status(500).json({message:err.message})
+    }
+})
+
+
+router.get('/getCoupons',authMiddleWare,async(req,res)=>{
+    const resId=req.userId
+    const getAllCoupons=`
+    SELECT *
+    FROM food_item_coupon
+    WHERE restaurant_id=?
+    `
+    try
+    {
+        const[result]=await db.query(getAllCoupons,[resId])
+        return res.status(200).json({result})
+    }
+    catch(err)
+    {
+        return res.status(500).json({message:err.message})
+    }
+})
+
+router.get('/getCoupons/:ordered',authMiddleWare,async(req,res)=>{
+    const resId=req.userId
+    const order=req.params.ordered
+    const getCouponsOrdered=``;
+    if(order=='asc')
+    {
+        getCouponsOrdered=`
+        SELECT *
+        FROM food_item_coupon
+        WHERE restaurant_id=?
+        ORDER BY times_used 
+        `
+    }
+    else
+    {
+        getCouponsOrdered=`
+        SELECT *
+        FROM food_item_coupon
+        WHERE restaurant_id=?
+        ORDER BY times_used DESC
+        `
+    }
+    try
+    {
+        const[result]=await db.query(getCouponsOrdered,[resId])
+        return res.status(200).json({result})
+    }
+    catch(err)
+    {
+        return res.status(500).json({message:err.message})
+    }
+})
+
+router.get('/couponeditems',authMiddleWare,async(req,res)=>{
+    const resId=req.userId
+    const getCouponedItems=`
+    SELECT r.name,r.food_image_path,a.coupon_name,a.discount_type,a.discount_value,a.coupon_id,r.food_id
+    FROM Restaurant_Menu r
+    JOIN food_item_coupon a ON r.res_id=a.restaurant_id
+    JOIN couponed_items c ON c.food_id=r.food_id
+    WHERE a.restaurant_id=? AND c.is_active=TRUE
+    `
+    try
+    {
+        const[result]=await db.query(getCouponedItems,[resId])
+        return res.status(200).json({result})
+    }
+    catch(err)
+    {
+        return res.status(500).json({message:err.message})
+    }
+})
+
+router.put('/deactivatecoupon/:foodid/:couponid',authMiddleWare,async(req,res)=>{
+    const resId=req.userId
+    const foodId=req.params.foodid
+    const couponId=req.params.couponid
+    const checkEligibility=`
+    SELECT COUNT(*) AS resCount
+    FROM Restaurant_Menu
+    WHERE food_id=? AND res_id=?
+    `
+    const deactivateCoupon=`
+    UPDATE couponed_items
+    SET is_active=FALSE
+    WHERE food_id=? AND is_active=TRUE AND coupon_id=?
+    `
+    try
+    {
+        const [tester]=await db.query(checkEligibility,[foodId,resId])
+        if(tester[0].resCount==0)
+        {
+            return res.status(404).json({message:'Not authorized to give a coupon on menu item'})
+        }
+
+        const[result]=await db.execute(deactivateCoupon,[foodId,couponId])
+
+        if(result.affectedRows==0)
+        {
+            return res.status(404).json({message:'Coupon could not be deactivated'})
+        }
+
+        return res.status(200).json({message:'Coupon deactivated successfully'})
+
+s
+    }
+    catch(err)
+    {
+        return res.status(500).json({message:err.message})
+    }
+})
 
 export default router;

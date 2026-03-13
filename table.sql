@@ -1,28 +1,24 @@
---create a database for project
 CREATE DATABASE purrito;
-
-
---Uses purrtio db for storage
 USE purrito;
-SELECT *
-FROM user;
 
 
---user table
+--User
+--this table represents a customer in our db.
 USE purrito;
 CREATE TABLE user
 (
     user_id INT AUTO_INCREMENT,
-    user_name VARCHAR(30) NOT NULL,
-    email_address VARCHAR(60) UNIQUE,
+    user_name VARCHAR(30)  NOT NULL,
+    email_address VARCHAR(60)  UNIQUE,
     password VARCHAR(60),
     phone_number CHAR(11),
+    last_lat DECIMAL(10,8) NULL,
+    last_lng DECIMAL(11,8) NULL,
     PRIMARY KEY(user_id)
 );
 
-
-
---restaurant table
+-- Restaurant
+--represents a restaurant in our db.
 USE purrito;
 CREATE TABLE restaurant
 (
@@ -34,8 +30,8 @@ CREATE TABLE restaurant
     city VARCHAR(20),
     postal_code CHAR(4),
     building_name VARCHAR(50),
-    lat DECIMAL(10,8),
-    lng DECIMAL(11,8),
+    lat DECIMAL(10,8) NULL,
+    lng DECIMAL(11,8) NULL,
     food_program BOOLEAN DEFAULT 0,
     res_image_path VARCHAR(512),
     description VARCHAR(100),
@@ -43,7 +39,8 @@ CREATE TABLE restaurant
     PRIMARY KEY(restaurant_id)
 );
 
---driver table
+-- Driver
+--represents a driver
 USE purrito;
 CREATE TABLE driver
 (
@@ -54,39 +51,14 @@ CREATE TABLE driver
     verification_method VARCHAR(100),
     phone_number CHAR(11),
     join_date DATE,
+    lat DECIMAL(10,8) NULL,
+    lng DECIMAL(11,8) NULL,
+    last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY(driver_id)
 );
 
---restaurant income table
-
-USE purrito;
-CREATE TABLE restaurant_income
-(
-    order_id INT,
-    restaurant_id INT,
-    payment DECIMAL(7,2),
-    payment_date DATE,
-    has_delivered BOOLEAN DEFAULT 0,
-    PRIMARY KEY(order_id,restaurant_id),
-    FOREIGN KEY(order_id) REFERENCES orders(order_id) ON DELETE CASCADE,
-    FOREIGN KEY(restaurant_id) REFERENCES restaurant(restaurant_id) ON DELETE CASCADE
-);
-
---driver income table
-USE purrito;
-CREATE TABLE driver_income (
-    order_id INT,
-    driver_id INT,
-    payment DECIMAL(7,2),
-    payment_date DATE,
-    has_delivered BOOLEAN DEFAULT FALSE,
-    PRIMARY KEY(order_id, driver_id),
-    FOREIGN KEY(order_id) REFERENCES orders(order_id) ON DELETE CASCADE,
-    FOREIGN KEY(driver_id) REFERENCES driver(driver_id) ON DELETE CASCADE
-);
-
---organizations for donation acceptance table
-
+-- Organization
+--represents an organization
 USE purrito;
 CREATE TABLE organization
 (
@@ -98,24 +70,25 @@ CREATE TABLE organization
     city VARCHAR(20),
     postal_code CHAR(4),
     building_name VARCHAR(50),
+    lat DECIMAL(10,8) NULL,
+    lng DECIMAL(11,8) NULL,
     PRIMARY KEY(org_id)
 );
 
---contact restaurant table
-
-
-
+-- Restaurant Contact
+--has a  restaurant's contacts as a restaurant can be seen having multiple contacts
 USE purrito;
 CREATE TABLE contact_restaurant
 (
-    res_id INT ,
+    res_id INT,
     phone_number CHAR(11),
     PRIMARY KEY(phone_number),
     FOREIGN KEY(res_id) REFERENCES restaurant(restaurant_id) ON DELETE CASCADE
 );
 
---menu table
-
+-- Menu Table
+--change made - Discount doesnt make sense here in the menu table
+--represents the restaurant menu
 USE purrito;
 CREATE TABLE Restaurant_Menu
 (
@@ -131,73 +104,98 @@ CREATE TABLE Restaurant_Menu
     FOREIGN KEY(res_id) REFERENCES restaurant(restaurant_id) ON DELETE CASCADE
 );
 
---Add discount_percent column to Restaurant_Menu
-ALTER TABLE Restaurant_Menu 
-ADD COLUMN discount_percent DECIMAL(5,2) DEFAULT 0;
-
-
---user's characteristics table
+-- User's characteristic table
+--represents a user's fyp 
 USE purrito;
 CREATE TABLE character_user
 (
-    user_id INT ,
+    user_id INT,
     trait VARCHAR(50),
-    PRIMARY KEY(user_id,trait),
+    PRIMARY KEY(user_id, trait),
     FOREIGN KEY(user_id) REFERENCES user(user_id) ON DELETE CASCADE
 );
 
---food characteristics 
-
+-- Food characteristics
+--each food has a certain taste profile attached
 USE purrito;
 CREATE TABLE food_characteristic
 (
     res_id INT,
-    food_id INT ,
+    food_id INT,
     trait VARCHAR(50),
-    PRIMARY KEY(res_id,food_id,trait),
+    PRIMARY KEY(res_id, food_id, trait),
     FOREIGN KEY(res_id) REFERENCES restaurant(restaurant_id) ON DELETE CASCADE,
     FOREIGN KEY(food_id) REFERENCES Restaurant_Menu(food_id) ON DELETE CASCADE
 );
 
---order table between restaurant and user
+-- Order table between restaurant and user
 USE purrito;
-CREATE TABLE orders(
-  order_id INT AUTO_INCREMENT,
-  user_id INT,
-  restaurant_id INT,
-  driver_id INT,
-  price DECIMAL(6,2),
-  delivery_address VARCHAR(255),
-  delivery_lat DECIMAL(10,8),
-  delivery_lng DECIMAL(11,8),
-  payment_method VARCHAR(20),
-  status ENUM('WAITING','PLACED','PREPARING','PICKED_UP','DELIVERED','REJECTED') DEFAULT 'WAITING',
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  rejection_reason VARCHAR(255) NULL,
-  PRIMARY KEY(order_id),
-  FOREIGN KEY(user_id) REFERENCES user(user_id) ON DELETE SET NULL,
-  FOREIGN KEY(restaurant_id) REFERENCES restaurant(restaurant_id) ON DELETE SET NULL,
-  FOREIGN KEY(driver_id) REFERENCES driver(driver_id) ON DELETE SET NULL
+CREATE TABLE orders
+(
+    order_id INT AUTO_INCREMENT,
+    user_id INT,
+    restaurant_id INT,
+    driver_id INT,
+    price DECIMAL(6,2),
+    delivery_address VARCHAR(255),
+    delivery_lat DECIMAL(10,8),
+    delivery_lng DECIMAL(11,8),
+    payment_method VARCHAR(20),
+    delivery_fee DECIMAL(6,2) DEFAULT 50.00,
+    search_start_time TIMESTAMP NULL,
+    is_pickup_offered BOOLEAN DEFAULT FALSE,
+    search_radius_km DECIMAL(4,2) DEFAULT 5.0,
+    status ENUM('WAITING','PLACED','PREPARING','PICKED_UP','DELIVERED','REJECTED') DEFAULT 'WAITING',
+    rejection_reason  VARCHAR(255) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY(order_id),
+    FOREIGN KEY(user_id) REFERENCES user(user_id) ON DELETE SET NULL,
+    FOREIGN KEY(restaurant_id) REFERENCES restaurant(restaurant_id) ON DELETE SET NULL,
+    FOREIGN KEY(driver_id) REFERENCES driver(driver_id) ON DELETE SET NULL
 );
 
-
-
---order and menu item table
+-- Ordered items table
 USE purrito;
 CREATE TABLE order_item
 (
     order_id INT,
     food_id INT,
     quantity INT,
-    PRIMARY KEY(order_id,food_id),
+    PRIMARY KEY(order_id, food_id),
     FOREIGN KEY(order_id) REFERENCES orders(order_id) ON DELETE CASCADE,
-    FOREIGN KEY(food_id) REFERENCES Restaurant_Menu(food_id) ON DELETE CASCADE
-
+    FOREIGN KEY(food_id)  REFERENCES Restaurant_Menu(food_id) ON DELETE CASCADE
 );
 
---rating for restaurant for particular order
+-- Restaurant income table
+USE purrito;
+CREATE TABLE restaurant_income
+(
+    order_id INT,
+    restaurant_id INT,
+    payment DECIMAL(7,2),
+    payment_date DATE,
+    has_delivered BOOLEAN DEFAULT 0,
+    PRIMARY KEY(order_id, restaurant_id),
+    FOREIGN KEY(order_id) REFERENCES orders(order_id) ON DELETE CASCADE,
+    FOREIGN KEY(restaurant_id) REFERENCES restaurant(restaurant_id) ON DELETE CASCADE
+);
 
+-- Driver income table
+USE purrito;
+CREATE TABLE driver_income
+(
+    order_id INT,
+    driver_id INT,
+    payment DECIMAL(7,2),
+    payment_date DATE,
+    has_delivered BOOLEAN DEFAULT FALSE,
+    PRIMARY KEY(order_id, driver_id),
+    FOREIGN KEY(order_id) REFERENCES orders(order_id) ON DELETE CASCADE,
+    FOREIGN KEY(driver_id) REFERENCES driver(driver_id) ON DELETE CASCADE
+);
+
+-- Rating for restaurant for particular order
 USE purrito;
 CREATE TABLE rating_restaurant
 (
@@ -206,18 +204,13 @@ CREATE TABLE rating_restaurant
     order_id INT,
     rating INT,
     comment VARCHAR(100),
-    PRIMARY KEY(user_id,res_id,order_id),
+    PRIMARY KEY(user_id, res_id, order_id),
     FOREIGN KEY(user_id) REFERENCES user(user_id) ON DELETE CASCADE,
     FOREIGN KEY(res_id) REFERENCES restaurant(restaurant_id) ON DELETE CASCADE,
     FOREIGN KEY(order_id) REFERENCES orders(order_id) ON DELETE CASCADE
 );
 
---order table for showing the current status of order
---can have driver column null
-
-
---table for rating driver based on an order
-
+-- Rating for driver
 USE purrito;
 CREATE TABLE rating_driver
 (
@@ -227,26 +220,25 @@ CREATE TABLE rating_driver
     rating INT,
     PRIMARY KEY(order_id),
     FOREIGN KEY(order_id) REFERENCES orders(order_id) ON DELETE CASCADE,
-    FOREIGN KEY(driver_id)REFERENCES driver(driver_id) ON DELETE CASCADE,
+    FOREIGN KEY(driver_id) REFERENCES driver(driver_id) ON DELETE CASCADE,
     FOREIGN KEY(user_id) REFERENCES user(user_id) ON DELETE SET NULL
 );
 
---table for restaurants to host their leftovers
-
+-- Table for restaurants to host their leftovers
 USE purrito;
 CREATE TABLE leftover_available
 (
     res_id INT,
     food_id INT,
-    made_on DATE ,
+    made_on DATE,
     quantity INT,
     taken_on DATE NULL,
     org_id INT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY(res_id,food_id,made_on),
+    PRIMARY KEY(res_id, food_id, made_on),
     FOREIGN KEY(res_id) REFERENCES restaurant(restaurant_id) ON DELETE CASCADE,
     FOREIGN KEY(food_id) REFERENCES Restaurant_Menu(food_id) ON DELETE CASCADE,
-    FOREIGN KEY(org_id) REFERENCES organization(org_id) ON DELETE CASCADE   
+    FOREIGN KEY(org_id) REFERENCES organization(org_id) ON DELETE CASCADE
 );
 
 --table for restaurant issued coupons
@@ -278,17 +270,8 @@ CREATE TABLE couponed_items
 );
 
 
-
+--Table for coupons given by website
 USE purrito;
-CREATE TABLE payment_credentials
-(
-    user_id INT,
-    payment_method VARCHAR(30),
-    payment_method_information VARCHAR(100),
-    PRIMARY KEY(user_id,payment_method),
-    FOREIGN KEY(user_id) REFERENCES user(user_id) ON DELETE CASCADE
-);
-
 CREATE TABLE coupon (
     coupon_code VARCHAR(20) PRIMARY KEY,
     discount_percent DECIMAL(5,2) NOT NULL,
@@ -297,47 +280,134 @@ CREATE TABLE coupon (
     is_active BOOLEAN DEFAULT 1
 );
 
---Sample coupons for testing
-INSERT INTO coupon VALUES ('WELCOME10', 10.00, 100.00, '2026-12-31', 1);
-INSERT INTO coupon VALUES ('PURRITO20', 20.00, 200.00, '2026-12-31', 1);
-INSERT INTO coupon VALUES ('SAVE50',     5.00,  50.00, '2026-12-31', 1);
-
-
+-- Payment credentials
 USE purrito;
-SELECT * FROM restaurant;
+CREATE TABLE payment_credentials
+(
+    user_id INT,
+    payment_method VARCHAR(30),
+    payment_method_information VARCHAR(100),
+    PRIMARY KEY(user_id, payment_method),
+    FOREIGN KEY(user_id) REFERENCES user(user_id) ON DELETE CASCADE
+);
 
-
+-- Notification table
 USE purrito;
-SELECT * FROM user;
+CREATE TABLE notifications
+(
+    notif_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NULL,
+    driver_id INT NULL,
+    restaurant_id INT NULL,
+    org_id INT NULL,
+    role ENUM('user','driver','restaurant','organization') NOT NULL,
+    title VARCHAR(100) NOT NULL,
+    message TEXT NOT NULL,
+    type VARCHAR(50) DEFAULT 'INFO',
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(user_id) REFERENCES user(user_id) ON DELETE CASCADE,
+    FOREIGN KEY(driver_id) REFERENCES driver(driver_id) ON DELETE CASCADE,
+    FOREIGN KEY(restaurant_id) REFERENCES restaurant(restaurant_id) ON DELETE CASCADE,
+    FOREIGN KEY(org_id) REFERENCES organization(org_id) ON DELETE CASCADE
+);
 
+-- Driver assignment logs table
 USE purrito;
-SELECT * FROM driver;
+CREATE TABLE driver_assignment_logs
+(
+    log_id INT AUTO_INCREMENT PRIMARY KEY,
+    order_id INT,
+    driver_id INT,
+    status ENUM('PENDING','ACCEPTED','DECLINED','TIMEOUT') DEFAULT 'PENDING',
+    created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+    responded_at TIMESTAMP NULL,
+    FOREIGN KEY(order_id) REFERENCES orders(order_id)  ON DELETE CASCADE,
+    FOREIGN KEY(driver_id) REFERENCES driver(driver_id) ON DELETE CASCADE
+);
 
-
---Triggers required
---1
---trigger for confirmation payment status after delivering the order
+-- Triggers
+-- 1. Confirm payment on delivery
 DELIMITER $$
 
 CREATE TRIGGER confirm_payment
-AFTER UPDATE
-ON orders
+AFTER UPDATE ON orders
 FOR EACH ROW
 BEGIN
-    IF OLD.status<>'DELIVERED' AND NEW.status='DELIVERED' THEN
-        UPDATE driver_income 
-        SET has_delivered=TRUE
-        WHERE order_id=NEW.order_id;
-        UPDATE restaurant_income 
-        SET has_delivered=TRUE
-        WHERE order_id=NEW.order_id;
+    IF OLD.status <> 'DELIVERED' AND NEW.status = 'DELIVERED' THEN
+        UPDATE driver_income SET has_delivered = TRUE WHERE order_id = NEW.order_id;
+        UPDATE restaurant_income SET has_delivered = TRUE WHERE order_id = NEW.order_id;
     END IF;
 END$$
 
 DELIMITER ;
 
---2
---event for deleting leftovers which have been sitting for 48 hours with no org taking it
+-- 2. Validate restaurant rating (1–5)
+DELIMITER $$
+
+CREATE TRIGGER validate_rating_restaurant
+BEFORE INSERT ON rating_restaurant
+FOR EACH ROW
+BEGIN
+    IF NEW.rating < 1 OR NEW.rating > 5 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Rating must be between 1 and 5';
+    END IF;
+END$$
+
+DELIMITER ;
+
+-- 3. Validate driver rating (1–5)
+DELIMITER $$
+
+CREATE TRIGGER validate_rating_driver
+BEFORE INSERT ON rating_driver
+FOR EACH ROW
+BEGIN
+    IF NEW.rating < 1 OR NEW.rating > 5 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Rating must be between 1 and 5';
+    END IF;
+END$$
+
+DELIMITER ;
+
+-- 4. Prevent rating a restaurant before delivery
+DELIMITER $$
+
+CREATE TRIGGER prevent_rating_restaurant_undelivered
+BEFORE INSERT ON rating_restaurant
+FOR EACH ROW
+BEGIN
+    DECLARE ord_status VARCHAR(20);
+    SELECT status INTO ord_status FROM orders WHERE order_id = NEW.order_id;
+    IF ord_status <> 'DELIVERED' THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Cannot rate an undelivered order';
+    END IF;
+END$$
+
+DELIMITER ;
+
+-- 5. Prevent rating a driver before delivery
+DELIMITER $$
+
+CREATE TRIGGER prevent_rating_driver_undelivered
+BEFORE INSERT ON rating_driver
+FOR EACH ROW
+BEGIN
+    DECLARE ord_status VARCHAR(20);
+    SELECT status INTO ord_status FROM orders WHERE order_id = NEW.order_id;
+    IF ord_status <> 'DELIVERED' THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Cannot rate driver before the order is delivered.';
+    END IF;
+END$$
+
+DELIMITER ;
+
+-- Events
+-- Event for deleting leftovers which have been sitting for 48 hours with no org taking it
 DELIMITER $$
 
 CREATE EVENT delete_old_leftovers
@@ -345,77 +415,11 @@ ON SCHEDULE EVERY 1 HOUR
 DO
 BEGIN
     DELETE FROM leftover_available
-    WHERE created_at<NOW()-INTERVAL 48 HOUR AND org_id IS NULL;
-END $$
+    WHERE created_at < NOW() - INTERVAL 48 HOUR AND org_id IS NULL;
+END$$
 
 DELIMITER ;
 
-
---3
-DELIMITER $$
-
-CREATE TRIGGER validate_rating_restaurant 
-BEFORE INSERT ON rating_restaurant
-FOR EACH ROW
-BEGIN
-    IF NEW.rating<1 OR NEW.rating>5 THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Rating must be between 1 and 5';
-    END IF;
-END $$
-
-DELIMITER ;
-
---4 
-DELIMITER $$
-
-CREATE TRIGGER validate_rating_driver 
-BEFORE INSERT ON rating_driver
-FOR EACH ROW
-BEGIN
-    IF NEW.rating<1 OR NEW.rating>5 THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Rating must be between 1 and 5';
-    END IF;
-END $$
-
-DELIMITER ;
-
---5
-DELIMITER $$ 
-
-CREATE TRIGGER prevent_rating_restaurant_undelivered
-BEFORE INSERT ON rating_restaurant
-FOR EACH ROW
-BEGIN 
-    DECLARE ord_status VARCHAR(20);
-    SELECT status INTO ord_status FROM orders WHERE order_id= NEW.order_id;
-    IF ord_status <> 'DELIVERED' THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Cannot rate an undelivered order';
-    END IF;
-END $$
-
-DELIMITER ;
-
---6
-DELIMITER $$
-
-CREATE TRIGGER prevent_rating_driver_undelivered
-BEFORE INSERT ON rating_driver
-FOR EACH ROW
-BEGIN 
-    DECLARE ord_status VARCHAR(20);
-    SELECT status INTO ord_status FROM orders WHERE order_id= NEW.order_id;
-    IF ord_status <> 'DELIVERED' THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Cannot rate driver before the order is delivered.';
-    END IF;
-END $$
-
-DELIMITER ;
-
---7
 --event for deactivating all coupons beyond their expiry date
 DELIMITER $$
 
@@ -429,27 +433,3 @@ BEGIN
 END $$
 
 DELIMITER ;
-
-
-
-
-
-        
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
