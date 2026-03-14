@@ -69,21 +69,70 @@ router.post('/driver/login', async (req, res) => {
 })
 
 
-//restaurant sign up
 router.post('/restaurant/signup', async (req, res) => {
-    const { name, email, password, street, city, postalcode, buildingname, foodprogram, resimagepath, description, restauranttype } = req.body
-    const hashedPassword = bcrypt.hashSync(password, 8)
-    const isSignedUpForFoodDonationProgram = foodprogram === "YES" ? true : false;
-    try {
-        // Auto-geocode the restaurant address
-        const { lat, lng } = await geocodeAddress(buildingname, street, city, 'Bangladesh');
-        console.log(`Geocoded restaurant address → lat:${lat}, lng:${lng}`);
 
-        const insertRestaurant = `INSERT INTO restaurant(res_name,email_address,password,street,city,postal_code,building_name,food_program,res_image_path,description,restaurant_type,lat,lng) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`
-        const [result] = await db.execute(insertRestaurant, [name, email, hashedPassword, street, city, postalcode, buildingname, isSignedUpForFoodDonationProgram, resimagepath, description, restauranttype, lat, lng])
-        console.log(result.insertId)
-        const token = jwt.sign({ restaurantId: result.insertId }, process.env.MYSECRETKEY, { expiresIn: '24h' })
-        return res.status(201).json({ token: token, restaurantId: result.insertId })
+    const {
+        name,
+        email,
+        password,
+        street,
+        city,
+        postalcode,
+        buildingname,
+        foodprogram,
+        resimagepath,
+        description,
+        restauranttype
+    } = req.body
+
+    const hashedPassword = bcrypt.hashSync(password, 8)
+
+    const isSignedUpForFoodDonationProgram = foodprogram === "YES"?1:0
+
+    try {
+
+        const { lat, lng } = await geocodeAddress(
+            buildingname,
+            street,
+            city,
+            'Bangladesh'
+        )
+
+        console.log(`Geocoded restaurant address → lat:${lat}, lng:${lng}`)
+
+        const insertRestaurant = `
+        INSERT INTO restaurant
+        (res_name,email_address,password,street,city,postal_code,building_name,food_program,res_image_path,description,restaurant_type,lat,lng)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+        `
+
+        const [result] = await db.execute(insertRestaurant, [
+            name,
+            email,
+            hashedPassword,
+            street ?? null,
+            city ?? null,
+            postalcode ?? null,
+            buildingname ?? null,
+            isSignedUpForFoodDonationProgram,
+            resimagepath ?? null,
+            description ?? null,
+            restauranttype ?? null,
+            lat,
+            lng
+        ])
+
+        const token = jwt.sign(
+            { restaurantId: result.insertId },
+            process.env.MYSECRETKEY,
+            { expiresIn: '24h' }
+        )
+
+        return res.status(201).json({
+            token: token,
+            restaurantId: result.insertId
+        })
+
     }
     catch (err) {
         console.log(err.message)

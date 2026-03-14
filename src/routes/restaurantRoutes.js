@@ -202,11 +202,12 @@ router.get('/revenueparticulartime', authMiddleWare, async (req, res) => {
 //add a menu item
 router.post('/addmenuitem', authMiddleWare, async (req, res) => {
     const resId = req.userId
-    const { name, coursename, price, food_image_path } = req.body
+    const { name, coursename, price, food_image_path ,is_available} = req.body
 
     try {
-        const addMenuItem = `INSERT INTO Restaurant_Menu(name,course_name,price,food_image_path) VALUES(?,?,?,?)`
-        const [result] = await db.execute(addMenuItem, [name, coursename, price, food_image_path])
+        const is_av=is_available=='yes'?1:0
+        const addMenuItem = `INSERT INTO Restaurant_Menu(res_id,name,course_name,price,food_image_path,is_available) VALUES(?,?,?,?,?,?)`
+        const [result] = await db.execute(addMenuItem, [resId,name, coursename, price, food_image_path,is_av])
         return res.status(200).json({ message: 'Added menu item successfully' })
     }
     catch (err) {
@@ -317,7 +318,7 @@ router.get('/menu/item/details/:id', authMiddleWare, async (req, res) => {
 //can update the details of a menu item
 router.put('/menu/item/update/:id', authMiddleWare, async (req, res) => {
     const resId = req.userId;
-    const { foodId } = req.body;
+    const foodId = req.params.id;
 
     const allowedFields = [
         "name",
@@ -332,8 +333,15 @@ router.put('/menu/item/update/:id', authMiddleWare, async (req, res) => {
 
     for (let key of Object.keys(req.body)) {
         if (allowedFields.includes(key)) {
-            updates.push(`${key} = ?`);
-            values.push(req.body[key]);
+            updates.push(`${key}=?`)
+            if (key === "is_available") 
+            {
+                values.push(req.body[key] ? 1 : 0);
+            } 
+            else 
+            {
+                values.push(req.body[key]);
+            }
         }
     }
 
@@ -642,7 +650,7 @@ router.post('/addcoupon/:id',authMiddleWare,async(req,res)=>{
             return res.status(400).json({message:'Discount cannot be greater than food price'})
         }
 
-        const[result]=await db.execute(addCouponToItem,[foodId,couponId,discountType,expiresAt])
+        const[result]=await db.execute(addCouponToItem,[foodId,couponId,expiresAt])
         if(result.affectedRows==0)
         {
             return res.status(404).json({message:'Error in adding coupon'})
