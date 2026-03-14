@@ -155,6 +155,10 @@ CREATE TABLE orders
     FOREIGN KEY(driver_id) REFERENCES driver(driver_id) ON DELETE SET NULL
 );
 
+USE purrito;
+SELECT *
+FROM Restaurant_Menu;
+
 -- Ordered items table
 USE purrito;
 CREATE TABLE order_item
