@@ -461,7 +461,9 @@ DELIMITER ;
 
 -- Procedures 
 -- 1. Handles full order placement workflow
-CREATE PROCEDURE PlaceOrder(
+DELIMITER $$ 
+
+CREATE PROCEDURE placeOrder(
     IN p_user_id INT,
     IN p_restaurant_id INT,
     IN p_price DECIMAL(6,2),

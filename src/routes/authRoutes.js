@@ -30,8 +30,8 @@ router.post('/driver/signup', async (req, res) => {
     console.log(password, hashedPassword)
 
     try {
-        const insertDriver = `INSERT INTO driver(user_name,email_address,password,verification_method,phone_number,join_date) VALUES(?,?,?,?,?,?)`
-        const [result] = await db.execute(insertDriver, [name, email, hashedPassword, verification, contact, joinDate])
+        const insertDriver = `INSERT INTO driver(user_name,email_address,password,verification_method,phone_number,join_date) VALUES(?,?,?,?,?,CURDATE())`
+        const [result] = await db.execute(insertDriver, [name, email, hashedPassword, verification, contact])
         console.log(result.insertId)
         const token = jwt.sign({ driverId: result.insertId }, process.env.MYSECRETKEY, { expiresIn: '24h' })
         return res.status(201).json({ token: token, driverId: result.insertId })
@@ -87,7 +87,7 @@ router.post('/restaurant/signup', async (req, res) => {
 
     const hashedPassword = bcrypt.hashSync(password, 8)
 
-    const isSignedUpForFoodDonationProgram = foodprogram === "YES"?1:0
+    const isSignedUpForFoodDonationProgram = foodprogram === "YES" ? 1 : 0
 
     try {
 

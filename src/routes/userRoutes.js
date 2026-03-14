@@ -1,7 +1,7 @@
 import express from 'express'
 import db from '../db.js'
 import authMiddleWare from '../middleware/authMiddleware.js'
-
+import { notifyRole } from '../server.js'
 const router = express.Router()
 
 //GET /api/user/profile
@@ -356,7 +356,7 @@ router.post('/orders', authMiddleWare, async (req, res) => {
 
         // Execute PlaceOrder stored procedure
         await conn.execute(
-            `CALL PlaceOrder(?, ?, ?, ?, ?, ?, ?, ?, ?, @out_order_id)`,
+            `CALL placeOrder(?, ?, ?, ?, ?, ?, ?, ?, ?, @out_order_id)`,
             [
                 userId,
                 restaurant_id,
@@ -372,6 +372,18 @@ router.post('/orders', authMiddleWare, async (req, res) => {
 
         const [outRows] = await conn.execute(`SELECT @out_order_id AS order_id`);
         const order_id = outRows[0].order_id;
+
+        await conn.execute(
+            'INSERT INTO notifications (restaurant_id, role, title, message, type) VALUES (?,?,?,?,?)',
+            [restaurant_id, 'restaurant', 'New Order', `You have a new order #${order_id}. Please accept or reject it.`, 'NEW_ORDER']
+        )
+
+        notifyRole('restaurant', restaurant_id, {
+            title: 'New Order!',
+            message: `You have a new order #${order_id}. Please accept or reject it.`,
+            type: 'NEW_ORDER',
+            order_id: order_id
+        })
 
         const selectCouponCountIfAny = `
         SELECT coupon_id 
@@ -403,6 +415,28 @@ router.post('/orders', authMiddleWare, async (req, res) => {
         conn.release();
     }
 
+});
+
+// PUT /api/user/orders/:order_id/cancel — cancel before restaurant accepts
+router.put('/orders/:order_id/cancel', authMiddleWare, async (req, res) => {
+    console.log('Cancel hit for order:', req.params.order_id, 'user:', req.userId)
+    const { order_id } = req.params;
+    const userId = req.userId;
+
+    try {
+        const [result] = await db.execute(
+            `UPDATE orders
+            SET status = 'REJECTED', rejection_reason= 'Cancelled by user'
+            WHERE order_id = ? AND user_id = ? AND status = 'WAITING'`,
+            [order_id, userId]
+        );
+        if (result.affectedRows === 0) return res.status(404).json({ message: 'Order cannot be cancelled — it may have already been accepted' });
+
+        res.status(200).json({ message: 'Order cancelled successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Error cancelling order' });
+    }
 });
 
 // GET /api/user/orders/:order_id  — order detail for tracking page
