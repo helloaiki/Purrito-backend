@@ -76,6 +76,7 @@ CREATE TABLE contact_restaurant
 );
 
 -- Menu Table
+--change made - Discount doesnt make sense here in the menu table
 CREATE TABLE Restaurant_Menu
 (
     res_id INT,
@@ -83,7 +84,6 @@ CREATE TABLE Restaurant_Menu
     name VARCHAR(50),
     course_name VARCHAR(20),
     price DECIMAL(6,2),
-    discount_percent DECIMAL(5,2) DEFAULT 0,
     is_available BOOLEAN DEFAULT 0,
     quantity_sold INT DEFAULT 0,
     food_image_path VARCHAR(512),
@@ -217,20 +217,42 @@ CREATE TABLE leftover_available
     FOREIGN KEY(org_id) REFERENCES organization(org_id) ON DELETE CASCADE
 );
 
--- Table for restaurant issued coupons
+--table for restaurant issued coupons
+USE purrito;
 CREATE TABLE food_item_coupon
 (
     coupon_id INT AUTO_INCREMENT,
-    food_id INT,
+    restaurant_id INT,
     coupon_name VARCHAR(100) NOT NULL,
     discount_type ENUM('PERCENT','FIXED') NOT NULL,
     discount_value INT NOT NULL,
+    times_used INT DEFAULT 0,
+    PRIMARY KEY(coupon_id),
+    FOREIGN KEY(restaurant_id) REFERENCES restaurant(restaurant_id)
+);
+
+--table for actually assigning coupons to food items
+USE PURRITO;
+CREATE TABLE couponed_items
+(
+    food_id INT,
+    coupon_id INT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     expires_on DATETIME NOT NULL,
     is_active BOOLEAN DEFAULT TRUE,
-    times_used INT DEFAULT 0,
-    PRIMARY KEY(coupon_id),
-    FOREIGN KEY(food_id) REFERENCES Restaurant_Menu(food_id) ON DELETE CASCADE
+    PRIMARY KEY(food_id,coupon_id),
+    FOREIGN KEY(food_id) REFERENCES Restaurant_Menu(food_id) ON DELETE CASCADE,
+    FOREIGN KEY(coupon_id) REFERENCES food_item_coupon(coupon_id) ON DELETE CASCADE
+);
+
+
+--Table for coupons given by website
+CREATE TABLE coupon (
+    coupon_code VARCHAR(20) PRIMARY KEY,
+    discount_percent DECIMAL(5,2) NOT NULL,
+    min_order_value DECIMAL(7,2) DEFAULT 0,
+    expiry_date DATE NOT NULL,
+    is_active BOOLEAN DEFAULT 1
 );
 
 -- Payment credentials
@@ -356,8 +378,22 @@ END$$
 
 DELIMITER ;
 
+-- 6. Log to notifications table when a driver is assigned to an order
+DELIMITER $$
+
+CREATE TRIGGER log_driver_assignment
+AFTER UPDATE ON orders
+FOR EACH ROW
+BEGIN
+    IF OLD.driver_id IS NULL AND NEW.driver_id IS NOT NULL THEN
+        INSERT INTO notifications (driver_id, role, title, message, type) VALUES (NEW.driver_id, 'driver', 'Order Assigned', CONCAT('You have been assiged to order #',NEW.order_id,'.'), 'DRIVER_ASSIGNED');
+    END IF;
+END$$;
+
+DELIMITER ;
+
 -- Events
--- Event for deleting leftovers which have been sitting for 48 hours with no org taking it
+-- 1. Event for deleting leftovers which have been sitting for 48 hours with no org taking it
 DELIMITER $$
 
 CREATE EVENT delete_old_leftovers
@@ -366,6 +402,195 @@ DO
 BEGIN
     DELETE FROM leftover_available
     WHERE created_at < NOW() - INTERVAL 48 HOUR AND org_id IS NULL;
+END$$
+
+DELIMITER ;
+
+-- 2. Event for deactivating all coupons beyond their expiry date
+DELIMITER $$
+
+CREATE EVENT deactivate_coupon
+ON SCHEDULE EVERY 1 HOUR
+DO
+BEGIN
+    UPDATE couponed_items
+    SET is_active=FALSE
+    WHERE expires_on<=NOW() AND is_active=TRUE;
+END $$
+
+DELIMITER ;
+
+
+-- Functions
+-- 1. Returns avg rating of a driver (0.0 if unrated)
+DELIMITER $$
+
+CREATE FUNCTION GetDriverAverageRating(p_driver_id INT)
+RETURNS DECIMAL(3,1)
+DETERMINISTIC
+READS SQL DATA
+BEGIN 
+    DECLARE avg_rating DECIMAL(3,1);
+    SELECT ROUND(AVG(rating),1)
+    INTO avg_rating
+    FROM rating_driver
+    WHERE driver_id = p_driver_id;
+    RETURN IFNULL(avg_rating,0.0);
+END$$
+
+DELIMITER ;
+
+-- 2. Returns avg rating of a restaurant (0.0 if unrated)
+DELIMITER $$
+
+CREATE FUNCTION GetRestaurantAverageRating(p_res_id INT)
+RETURNS DECIMAL(3,1)
+DETERMINISTIC
+READS SQL DATA
+BEGIN 
+    DECLARE avg_rating DECIMAL(3,1);
+    SELECT ROUND(AVG(rating),1)
+    INTO avg_rating
+    FROM rating_restaurant
+    WHERE res_id = p_res_id;
+    RETURN IFNULL(avg_rating,0.0);
+END$$
+
+DELIMITER ;
+
+
+-- Procedures 
+-- 1. Handles full order placement workflow
+CREATE PROCEDURE PlaceOrder(
+    IN p_user_id INT,
+    IN p_restaurant_id INT,
+    IN p_price DECIMAL(6,2),
+    IN p_delivery_fee DECIMAL(6,2),
+    IN p_delivery_address VARCHAR(255),
+    IN p_delivery_lat DECIMAL(10,8),
+    IN p_delivery_lng DECIMAL(11,8),
+    IN p_payment_method VARCHAR(20),
+    IN p_items_json JSON,
+    OUT p_order_id INT
+)
+BEGIN
+    DECLARE v_idx INT DEFAULT 0;
+    DECLARE v_count INT;
+    DECLARE v_food_id INT;
+    DECLARE v_quantity INT;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN 
+        ROLLBACK;
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'PlaceOrder failed - transaction rolled back';
+    END;
+
+    START TRANSACTION;
+
+    -- Insert ORDER
+    INSERT INTO orders(user_id, restaurant_id, price, delivery_fee, delivery_address, delivery_lat, delivery_lng, payment_method, status)
+    VALUES (p_user_id, p_restaurant_id, p_price, p_delivery_fee, p_delivery_address, p_delivery_lat, p_delivery_lng, p_payment_method, 'WAITING');
+
+    SET p_order_id = LAST_INSERT_ID();
+
+    -- Insert ORDER_ITEMS
+    SET v_count = JSON_LENGTH(p_items_json);
+    WHILE v_idx < v_count DO
+        SET v_food_id = JSON_UNQUOTE(JSON_EXTRACT(p_items_json, CONCAT('$[', v_idx, '].food_id')));
+        SET v_quantity = JSON_UNQUOTE(JSON_EXTRACT(p_items_json, CONCAT('$[', v_idx, '].quantity')));
+        INSERT INTO order_item(order_id, food_id, quantity) VALUES (p_order_id, v_food_id, v_quantity);
+
+        UPDATE Restaurant_Menu
+        SET quantity_sold = quantity_sold + v_quantity
+        WHERE food_id = v_food_id;
+
+        SET v_idx = v_idx + 1;
+    END WHILE;
+
+    -- Create restaurant income record
+    INSERT INTO restaurant_income (order_id, restaurant_id, payment, payment_date, has_delivered)
+    VALUES (p_order_id, p_restaurant_id, p_price - p_delivery_fee, CURDATE(), FALSE);
+
+    COMMIT;
+END$$
+
+DELIMITER ;
+
+-- 2. Handles driver assignment
+DELIMITER $$
+
+CREATE PROCEDURE AssignDriverToOrder(
+    IN p_order_id INT,
+    IN p_driver_id INT,
+    IN p_notif_id INT
+)
+BEGIN 
+    DECLARE v_delivery_fee DECIMAL(6,2);
+    DECLARE v_affected INT;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN 
+        ROLLBACK;
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'AssignDriverToOrder failed - transaction rolled back';
+    END;
+
+    START TRANSACTION;
+    -- Fetch delivery fee from order
+    SELECT delivery_fee INTO v_delivery_fee
+    FROM orders
+    WHERE order_id = p_order_id;
+
+    -- Assign driver 
+    UPDATE orders
+    SET driver_id = p_driver_id, status= 'PREPARING'
+    WHERE order_id = p_order_id AND driver_id IS NULL;
+
+    -- If another driver grabbed it first, abort
+    IF ROW_COUNT() = 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Order already assigned to another driver';
+    END IF;
+
+    -- Mark the assignment log as ACCEPTED
+    UPDATE driver_assignment_logs
+    SET status = 'ACCEPTED', responded_at = NOW()
+    WHERE order__id = p_order_id AND driver_id = p_driver_id;
+
+    -- Record driver income
+    INSERT INTO driver_income (order_id, driver_id, payment, payment_date, has_delivered)
+    VALUES (p_order_id, p_driver_id, v_delivery_fee, CURDATE(), FALSE);
+
+    -- Mark notification as read
+    IF p_notif_id > 0 THEN
+        UPDATE notifications
+        SET is_read = TRUE
+        WHERE notif_id = p_notif_id;
+    END IF;
+
+    COMMIT;
+END$$
+
+DELIMITER ;
+
+-- 3. Returns all dashboard stats for a driver in one call
+DELIMITER $$
+
+CREATE PROCEDURE GetDriverDashboardStats(IN p_driver_id INT)
+BEGIN
+    SELECT IFNULL(ROUND(SUM(di.payment),2),0) AS totalRevenue,
+    (SELECT COUNT(*) FROM orders WHERE driver_id = p_driver_id AND status = 'DELIVERED') AS totalDeliveries,
+    GetDriverAverageRating(p_driver_id) AS rating,
+    IFNULL((SELECT ROUND(SUM(payment),2) FROM driver_income
+        WHERE driver_id = p_driver_id AND has_delivered = 1 AND DATE(payment_date) = CURDATE()),0) AS todayEarnings
+    FROM driver_income di
+    WHERE di.driver_id = p_driver_id AND di.has_delivered = 1;
+    -- Weekly  history
+    SELECT 
+        DATE_FORMAT(payment_date, '%a') AS day,
+        ROUND(SUM(payment), 2) AS dailyRevenue
+    FROM driver_income
+    WHERE driver_id = p_driver_id AND has_delivered =1 AND payment_date >= DATE_SUB(CURDTAE(), INTERVAL 6 DAY)
+    GROUP BY DATE(payment_date)
+    ORDER BY DATE(payment_date) ASC;
 END$$
 
 DELIMITER ;

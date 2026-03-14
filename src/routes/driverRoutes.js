@@ -59,24 +59,14 @@ router.put('/acceptOffer', authMiddleWare, async (req, res) => {
             return res.status(410).json({ message: 'Offer expired or already handled' });
         }
 
-        const [update] = await db.execute(
-            'UPDATE orders SET driver_id = ?, status = "PREPARING" WHERE order_id = ? AND driver_id IS NULL',
-            [driverId, orderId]
-        );
-
-        if (update.affectedRows === 0) {
-            return res.status(409).json({ message: 'Order already assigned to another driver' });
-        }
-
+        // Call the stored procedure
         await db.execute(
-            'UPDATE driver_assignment_logs SET status = "ACCEPTED", responded_at = NOW() WHERE order_id = ? AND driver_id = ?',
-            [orderId, driverId]
-        );
+            'CALL AssignDriverToOrder(?, ?, ?)',
+            [orderId, driverId, notif_id || 0]
+        )
 
-        if (notif_id) {
-            await db.execute('UPDATE notifications SET is_read = TRUE WHERE notif_id = ?', [notif_id]);
-        }
         const [user] = await db.query('SELECT user_id FROM orders WHERE order_id = ?', [orderId]);
+
         if (user.length > 0) {
             const title = "Driver Assigned!";
             const message = `A driver has been assigned to your order #${orderId} and is on the way to the restaurant.`;
@@ -222,32 +212,17 @@ router.get('/revenueparticulartime', authMiddleWare, async (req, res) => {
 router.get('/stats', authMiddleWare, async (req, res) => {
     const driverId = req.userId
     try {
-        const statsQuery = `
-            SELECT 
-                (SELECT ROUND(SUM(payment), 2) FROM driver_income WHERE driver_id = ? AND has_delivered = 1) AS totalRevenue,
-                (SELECT COUNT(*) FROM orders WHERE driver_id = ? AND status = 'DELIVERED') AS totalDeliveries,
-                (SELECT ROUND(AVG(rating), 1) FROM rating_driver WHERE driver_id = ?) AS rating,
-                (SELECT ROUND(SUM(payment), 2) FROM driver_income WHERE driver_id = ? AND has_delivered = 1 AND DATE(payment_date) = CURDATE()) AS todayEarnings
-        `
-        const [result] = await db.query(statsQuery, [driverId, driverId, driverId, driverId])
+        const [resultSets] = await db.query('CALL GetDriverDashboardStats(?)', [driverId])
 
-        const historyQuery = `
-            SELECT 
-                DATE_FORMAT(payment_date, '%a') as day,
-                ROUND(SUM(payment), 2) as dailyRevenue
-            FROM driver_income
-            WHERE driver_id = ? AND has_delivered = 1 AND payment_date >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
-            GROUP BY DATE(payment_date)
-            ORDER BY DATE(payment_date) ASC
-        `
-        const [history] = await db.query(historyQuery, [driverId])
+        const summery = resultSets[0][0]
+        const history = resultSets[1]
 
         const stats = {
-            totalRevenue: result[0].totalRevenue || 0,
-            totalDeliveries: result[0].totalDeliveries || 0,
-            rating: result[0].rating || 0,
-            todayEarnings: result[0].todayEarnings || 0,
-            history: history
+            totalRevenue: summery?.totalRevenue || 0,
+            totalDeliveries: summery?.totalDeliveries || 0,
+            rating: summery?.rating || 0,
+            todayEarnings: summery?.todayEarnings || 0,
+            history: history || []
         }
 
         return res.status(200).json(stats)
