@@ -20,7 +20,7 @@ router.get('/', authMiddleware, async (req, res) => {
         else if (role === 'restaurant') query += 'restaurant_id = ?';
         else if (role === 'organization') query += 'org_id = ?';
 
-        const [notifications] = await db.execute(query + ' ORDER BY created_at DESC', [role, userId]);
+        const [notifications] = await db.execute(query + ' ORDER BY is_read ASC, created_at DESC LIMIT 30', [role, userId]);
         res.json(notifications);
     } catch (err) {
         console.error('Error fetching notifications:', err);

@@ -1,6 +1,8 @@
 import express from 'express'
 import db from '../db.js'
 import authMiddleWare from '../middleware/authMiddleware.js'
+import { notifyRole } from '../server.js'
+import { startDriverSearch } from '../utils/fulfillment.js'
 
 const router = express.Router()
 
@@ -73,49 +75,145 @@ router.post('/leftover', authMiddleWare, async (req, res) => {
     }
 });
 
-router.post('/addfoodcharacteristic',authMiddleWare,async(req,res)=>{
-    const resId=req.userId
-    const {foodId,characteristics}=req.body
+// GET /api/restaurant/leftovers/pending
+router.get('/leftovers/pending', authMiddleWare, async (req, res) => {
+    const resId = req.userId;
+    try {
+        const query = `
+            SELECT la.*, rm.name as food_name, rm.food_image_path, o.org_name, o.contact_number as org_contact, o.email_address as org_email
+            FROM leftover_available la
+            JOIN Restaurant_Menu rm ON la.food_id = rm.food_id
+            JOIN organization o ON la.org_id = o.org_id
+            WHERE la.res_id = ? AND la.status = 'PENDING'
+            ORDER BY la.made_on ASC
+        `;
+        const [pendingClaims] = await db.execute(query, [resId]);
+        res.status(200).json(pendingClaims);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Error fetching pending claims' });
+    }
+});
 
-    if(!Array.isArray(characteristics))
-    {
-        return res.status.json({message:'Characteristics must be in an array'})
+// POST /api/restaurant/leftovers/accept
+router.post('/leftovers/accept', authMiddleWare, async (req, res) => {
+    const resId = req.userId;
+    const { food_id, org_id, made_on, pickup_time } = req.body;
+
+    if (!pickup_time) {
+        return res.status(400).json({ message: 'Pickup time is required to accept a claim' });
     }
 
-    const uniqueCharacteristics=[...new Set(characteristics.map(c=>c.trim()).filter(c=>c!=" " && c!=""))]
-    const checkEligibility=`
+    try {
+        const query = `
+            UPDATE leftover_available
+            SET status = 'ACCEPTED', pickup_time = ?
+            WHERE res_id = ? AND food_id = ? AND org_id = ? AND made_on = ? AND status = 'PENDING'
+        `;
+        const [result] = await db.execute(query, [pickup_time, resId, food_id, org_id, made_on]);
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Claim not found or not in PENDING state' });
+        }
+
+        const [foodDetails] = await db.execute('SELECT name FROM Restaurant_Menu WHERE food_id = ?', [food_id]);
+        const foodName = foodDetails[0] ? foodDetails[0].name : `Food #${food_id}`;
+
+        await db.execute(
+            'INSERT INTO notifications (org_id, role, title, message, type) VALUES (?,?,?,?,?)',
+            [org_id, 'organization', 'Claim Accepted', `Your claim for ${foodName} has been accepted. Pickup at: ${pickup_time}`, 'CLAIM_ACCEPTED']
+        )
+
+        notifyRole('organization', org_id, {
+            title: 'Claim Accepted',
+            message: `Your claim for ${foodName} has been accepted. Pickup at: ${pickup_time}`,
+            type: 'CLAIM_ACCEPTED',
+            food_id: food_id
+        })
+
+        res.status(200).json({ message: 'Claim accepted successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Error accepting claim' });
+    }
+});
+
+// POST /api/restaurant/leftovers/reject
+router.post('/leftovers/reject', authMiddleWare, async (req, res) => {
+    const resId = req.userId;
+    const { food_id, org_id, made_on } = req.body;
+
+    try {
+        const query = `
+            UPDATE leftover_available
+            SET status = 'REJECTED'
+            WHERE res_id = ? AND food_id = ? AND org_id = ? AND made_on = ? AND status = 'PENDING'
+        `;
+        const [result] = await db.execute(query, [resId, food_id, org_id, made_on]);
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Claim not found or not in PENDING state' });
+        }
+
+        const [foodDetails] = await db.execute('SELECT name FROM Restaurant_Menu WHERE food_id = ?', [food_id]);
+        const foodName = foodDetails[0] ? foodDetails[0].name : `Food #${food_id}`;
+
+        await db.execute(
+            'INSERT INTO notifications (org_id, role, title, message, type) VALUES (?,?,?,?,?)',
+            [org_id, 'organization', 'Claim Rejected', `Your claim for ${foodName} has been rejected.`, 'CLAIM_REJECTED']
+        )
+
+        notifyRole('organization', org_id, {
+            title: 'Claim Rejected',
+            message: `Your claim for ${foodName} has been rejected.`,
+            type: 'CLAIM_REJECTED',
+            food_id: food_id
+        })
+
+        res.status(200).json({ message: 'Claim rejected successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Error rejecting claim' });
+    }
+});
+
+router.post('/addfoodcharacteristic', authMiddleWare, async (req, res) => {
+    const resId = req.userId
+    const { foodId, characteristics } = req.body
+
+    if (!Array.isArray(characteristics)) {
+        return res.status.json({ message: 'Characteristics must be in an array' })
+    }
+
+    const uniqueCharacteristics = [...new Set(characteristics.map(c => c.trim()).filter(c => c != " " && c != ""))]
+    const checkEligibility = `
     SELECT COUNT(*) AS resCount
     FROM Restaurant_Menu
     WHERE food_id=? AND res_id=?
     `
-    const insertCharacteristic=`
+    const insertCharacteristic = `
     INSERT INTO food_characteristic(res_id,food_id,trait) VALUES(?,?,?)
     `
-    try
-    {
-        const[verification]=await db.query(checkEligibility,[foodId,resId])
-        if(verification[0].resCount==0)
-        {
-            return res.status(404).json({message:'Not authorized'})
+    try {
+        const [verification] = await db.query(checkEligibility, [foodId, resId])
+        if (verification[0].resCount == 0) {
+            return res.status(404).json({ message: 'Not authorized' })
         }
 
-        for(let c of uniqueCharacteristics)
-        {
-            let[result]=await db.execute(insertCharacteristic,[resId,foodId,c])
-            if(result.affectedRows==0)
-            {
-                return res.status(404).json({message:'Could not update food characteristics table'})
+        for (let c of uniqueCharacteristics) {
+            let [result] = await db.execute(insertCharacteristic, [resId, foodId, c])
+            if (result.affectedRows == 0) {
+                return res.status(404).json({ message: 'Could not update food characteristics table' })
             }
         }
 
-        return res.status(200).json({message:'Added food characteristics successfully'})
-        
+        return res.status(200).json({ message: 'Added food characteristics successfully' })
+
     }
-    catch(err)
-    {
-        return res.status(500).json({message:err.message})
+    catch (err) {
+        return res.status(500).json({ message: err.message })
     }
-    
+
 })
 
 
@@ -228,12 +326,13 @@ router.get('/revenueparticulartime', authMiddleWare, async (req, res) => {
 //add a menu item
 router.post('/addmenuitem', authMiddleWare, async (req, res) => {
     const resId = req.userId
-    const { name, coursename, price, food_image_path ,is_available} = req.body
+    console.log('req.body:', req.body)
+    const { name, course_name, price, food_image_path, is_available } = req.body
 
     try {
-        const is_av=is_available=='yes'?1:0
+        const is_av = is_available == 'yes' ? 1 : 0
         const addMenuItem = `INSERT INTO Restaurant_Menu(res_id,name,course_name,price,food_image_path,is_available) VALUES(?,?,?,?,?,?)`
-        const [result] = await db.execute(addMenuItem, [resId,name, coursename, price, food_image_path,is_av])
+        const [result] = await db.execute(addMenuItem, [resId, name, course_name, price, food_image_path ?? null, is_av])
         return res.status(200).json({ message: 'Added menu item successfully' })
     }
     catch (err) {
@@ -360,12 +459,10 @@ router.put('/menu/item/update/:id', authMiddleWare, async (req, res) => {
     for (let key of Object.keys(req.body)) {
         if (allowedFields.includes(key)) {
             updates.push(`${key}=?`)
-            if (key === "is_available") 
-            {
+            if (key === "is_available") {
                 values.push(req.body[key] ? 1 : 0);
-            } 
-            else 
-            {
+            }
+            else {
                 values.push(req.body[key]);
             }
         }
@@ -538,9 +635,6 @@ router.get('/menu/categories', authMiddleWare, async (req, res) => {
     }
 })
 
-import { startDriverSearch } from '../utils/fulfillment.js';
-import { notifyRole } from '../server.js';
-
 // PUT /api/restaurant/orders/:id/status
 router.put('/orders/:id/status', authMiddleWare, async (req, res) => {
     const resId = req.userId;
@@ -597,279 +691,246 @@ router.put('/orders/:id/status', authMiddleWare, async (req, res) => {
 
 
 //coupon stuff
-router.post('/addcoupon',authMiddleWare,async(req,res)=>{
-    const resId=req.userId
-    const{couponName,discountType,discountValue}=req.body
-    if((discountType=='PERCENT' && (discountValue<0 || discountValue>100)) || (discountType=='FIXED' && discountValue<0))
-    {
-        return res.status(400).json({message:'Invalid discount values'})
+router.post('/addcoupon', authMiddleWare, async (req, res) => {
+    const resId = req.userId
+    const { couponName, discountType, discountValue } = req.body
+    if ((discountType == 'PERCENT' && (discountValue < 0 || discountValue > 100)) || (discountType == 'FIXED' && discountValue < 0)) {
+        return res.status(400).json({ message: 'Invalid discount values' })
     }
-    
-    const addCoupon=`
+
+    const addCoupon = `
      INSERT INTO food_item_coupon(restaurant_id,coupon_name,discount_type,discount_value) VALUES(?,?,?,?)
     `
-    try
-    {
-        const[result]=await db.execute(addCoupon,[resId,couponName,discountType,discountValue])
-        if(result.affectedRows==0)
-        {
-            return res.status(404).json({message:'Error in adding coupon'})
+    try {
+        const [result] = await db.execute(addCoupon, [resId, couponName, discountType, discountValue])
+        if (result.affectedRows == 0) {
+            return res.status(404).json({ message: 'Error in adding coupon' })
         }
-        return res.status(200).json({message:'Successfully added coupon to the menu item'})
+        return res.status(200).json({ message: 'Successfully added coupon to the menu item' })
     }
-    catch(err)
-    {
-        return res.status(500).json({message:err.message})
+    catch (err) {
+        return res.status(500).json({ message: err.message })
     }
 })
 
-router.post('/addcoupon/:id',authMiddleWare,async(req,res)=>{
-    const resId=req.userId
-    const{couponId,expiresAt}=req.body
-    const foodId=req.params.id
-    const checkEligibility=`
+router.post('/addcoupon/:id', authMiddleWare, async (req, res) => {
+    const resId = req.userId
+    const { couponId, expiresAt } = req.body
+    const foodId = req.params.id
+    const checkEligibility = `
     SELECT COUNT(*) AS resCount
     FROM Restaurant_Menu
     WHERE food_id=? AND res_id=?
     `
 
-    const checkCoupon=`
+    const checkCoupon = `
     SELECT c.discount_type,c.discount_value
     FROM food_item_coupon c
     WHERE c.coupon_id=?
     `
 
-    const checkPrice=`
+    const checkPrice = `
     SELECT f.price
     FROM Restaurant_Menu f
     WHERE f.food_id=?
     `
 
 
-    const addCouponToItem=`
+    const addCouponToItem = `
      INSERT INTO couponed_items(food_id,coupon_id,expires_on) VALUES(?,?,?)
     `
 
-    try
-    {
-        const [tester]=await db.query(checkEligibility,[foodId,resId])
-        if(tester[0].resCount==0)
-        {
-            return res.status(404).json({message:'Not authorized to give a coupon on menu item'})
+    try {
+        const [tester] = await db.query(checkEligibility, [foodId, resId])
+        if (tester[0].resCount == 0) {
+            return res.status(404).json({ message: 'Not authorized to give a coupon on menu item' })
         }
 
-        const[tester2]=await db.query(checkCoupon,[couponId])
-        if (!tester2[0]) 
-        {
+        const [tester2] = await db.query(checkCoupon, [couponId])
+        if (!tester2[0]) {
             return res.status(404).json({ message: 'Coupon not found for this food' });
         }
 
-        const[tester3]=await db.query(checkPrice,[foodId])
+        const [tester3] = await db.query(checkPrice, [foodId])
 
-        if (!tester3[0]) 
-        {
+        if (!tester3[0]) {
             return res.status(404).json({ message: 'Food item not found' });
         }
 
-        if(tester2[0].discount_type=='FIXED' && parseInt(tester2[0].discount_value)>parseFloat(tester3[0].price))
-        {
-            return res.status(400).json({message:'Discount cannot be greater than food price'})
+        if (tester2[0].discount_type == 'FIXED' && parseInt(tester2[0].discount_value) > parseFloat(tester3[0].price)) {
+            return res.status(400).json({ message: 'Discount cannot be greater than food price' })
         }
 
-        const[result]=await db.execute(addCouponToItem,[foodId,couponId,expiresAt])
-        if(result.affectedRows==0)
-        {
-            return res.status(404).json({message:'Error in adding coupon'})
+        const [result] = await db.execute(addCouponToItem, [foodId, couponId, expiresAt])
+        if (result.affectedRows == 0) {
+            return res.status(404).json({ message: 'Error in adding coupon' })
         }
-        return res.status(200).json({message:'Successfully added coupon to the menu item'})
+        return res.status(200).json({ message: 'Successfully added coupon to the menu item' })
     }
-    catch(err)
-    {
-        return res.status(500).json({message:err.message})
+    catch (err) {
+        return res.status(500).json({ message: err.message })
     }
 
 })
 
-router.get('/getcoupons/:foodid',authMiddleWare,async(req,res)=>{
-    const foodId=req.params.foodid
-    const getCouponsAttachedToFoodItem=`
+router.get('/getcoupons/:foodid', authMiddleWare, async (req, res) => {
+    const foodId = req.params.foodid
+    const getCouponsAttachedToFoodItem = `
     SELECT c.coupon_id,cc.coupon_name,cc.discount_type,cc.discount_value 
     FROM food_item_coupon c
     JOIN couponed_items cc ON c.coupon_id=cc.coupon_id
     WHERE cc.food_id=?
     `
-    try
-    {
-        const[result]=await db.query(getCouponsAttachedToFoodItem,[foodId])
-        return res.status(200).json({result})
+    try {
+        const [result] = await db.query(getCouponsAttachedToFoodItem, [foodId])
+        return res.status(200).json({ result })
     }
-    catch(err)
-    {
-        return res.status(500).json({message:err.message})
+    catch (err) {
+        return res.status(500).json({ message: err.message })
     }
 })
 
-router.delete('/deletecoupon',authMiddleWare,async(req,res)=>{
-    const resId=req.userId
-    const{couponId}=req.body
-    
-    const deleteCoupon=`
+router.delete('/deletecoupon', authMiddleWare, async (req, res) => {
+    const resId = req.userId
+    const { couponId } = req.body
+
+    const deleteCoupon = `
     DELETE FROM food_item_coupon
     WHERE coupon_id=? AND restaurant_id=?
     `
-    try
-    {
+    try {
 
-        const[result]=await db.execute(deleteCoupon,[couponId,resId])
-        if(result.affectedRows==0)
-        {
-            return res.status(404).json({message:'Error in deleting coupon'})
+        const [result] = await db.execute(deleteCoupon, [couponId, resId])
+        if (result.affectedRows == 0) {
+            return res.status(404).json({ message: 'Error in deleting coupon' })
         }
-        return res.status(200).json({message:'Successfully deleted coupon'})
+        return res.status(200).json({ message: 'Successfully deleted coupon' })
 
     }
-    catch(err)
-    {
-        return res.status(500).json({message:err.message})
+    catch (err) {
+        return res.status(500).json({ message: err.message })
     }
 })
 
-router.put('/updatecoupon',authMiddleWare,async(req,res)=>{
-    const resId=req.userId
-    const{couponId,discountType,discountValue}=req.body
-    if((discountType=='PERCENT' && (discountValue<0 || discountValue>100)) || (discountType=='FIXED' && discountValue<0))
-    {
-        return res.status(400).json({message:'Invalid discount values'})
+router.put('/updatecoupon', authMiddleWare, async (req, res) => {
+    const resId = req.userId
+    const { couponId, discountType, discountValue } = req.body
+    if ((discountType == 'PERCENT' && (discountValue < 0 || discountValue > 100)) || (discountType == 'FIXED' && discountValue < 0)) {
+        return res.status(400).json({ message: 'Invalid discount values' })
     }
-    const updateCoupon=`
+    const updateCoupon = `
     UPDATE food_item_coupon 
     SET discount_type=?,discount_value=?
     WHERE restaurant_id=? AND coupon_id=?
     `
-    try
-    {
-        const[result]=await db.execute(updateCoupon,[discountType,discountValue,resId,couponId])
-        if(result.affectedRows==0)
-        {
-            return res.status(404).json({message:'Error in updating coupon'})
+    try {
+        const [result] = await db.execute(updateCoupon, [discountType, discountValue, resId, couponId])
+        if (result.affectedRows == 0) {
+            return res.status(404).json({ message: 'Error in updating coupon' })
         }
-        return res.status(200).json({message:'Successfully updated coupon'})
+        return res.status(200).json({ message: 'Successfully updated coupon' })
 
     }
-    catch(err)
-    {
-        return res.status(500).json({message:err.message})
+    catch (err) {
+        return res.status(500).json({ message: err.message })
     }
 })
 
 
-router.get('/getCoupons',authMiddleWare,async(req,res)=>{
-    const resId=req.userId
-    const getAllCoupons=`
+router.get('/getCoupons', authMiddleWare, async (req, res) => {
+    const resId = req.userId
+    const getAllCoupons = `
     SELECT *
     FROM food_item_coupon
     WHERE restaurant_id=?
     `
-    try
-    {
-        const[result]=await db.query(getAllCoupons,[resId])
-        return res.status(200).json({result})
+    try {
+        const [result] = await db.query(getAllCoupons, [resId])
+        return res.status(200).json({ result })
     }
-    catch(err)
-    {
-        return res.status(500).json({message:err.message})
+    catch (err) {
+        return res.status(500).json({ message: err.message })
     }
 })
 
-router.get('/getCoupons/:ordered',authMiddleWare,async(req,res)=>{
-    const resId=req.userId
-    const order=req.params.ordered
-    const getCouponsOrdered=``;
-    if(order=='asc')
-    {
-        getCouponsOrdered=`
+router.get('/getCoupons/:ordered', authMiddleWare, async (req, res) => {
+    const resId = req.userId
+    const order = req.params.ordered
+    let getCouponsOrdered = ``;
+    if (order == 'asc') {
+        getCouponsOrdered = `
         SELECT *
         FROM food_item_coupon
         WHERE restaurant_id=?
         ORDER BY times_used 
         `
     }
-    else
-    {
-        getCouponsOrdered=`
+    else {
+        getCouponsOrdered = `
         SELECT *
         FROM food_item_coupon
         WHERE restaurant_id=?
         ORDER BY times_used DESC
         `
     }
-    try
-    {
-        const[result]=await db.query(getCouponsOrdered,[resId])
-        return res.status(200).json({result})
+    try {
+        const [result] = await db.query(getCouponsOrdered, [resId])
+        return res.status(200).json({ result })
     }
-    catch(err)
-    {
-        return res.status(500).json({message:err.message})
+    catch (err) {
+        return res.status(500).json({ message: err.message })
     }
 })
 
-router.get('/couponeditems',authMiddleWare,async(req,res)=>{
-    const resId=req.userId
-    const getCouponedItems=`
+router.get('/couponeditems', authMiddleWare, async (req, res) => {
+    const resId = req.userId
+    const getCouponedItems = `
     SELECT r.name,r.food_image_path,a.coupon_name,a.discount_type,a.discount_value,a.coupon_id,r.food_id
     FROM Restaurant_Menu r
     JOIN food_item_coupon a ON r.res_id=a.restaurant_id
     JOIN couponed_items c ON c.food_id=r.food_id
     WHERE a.restaurant_id=? AND c.is_active=TRUE
     `
-    try
-    {
-        const[result]=await db.query(getCouponedItems,[resId])
-        return res.status(200).json({result})
+    try {
+        const [result] = await db.query(getCouponedItems, [resId])
+        return res.status(200).json({ result })
     }
-    catch(err)
-    {
-        return res.status(500).json({message:err.message})
+    catch (err) {
+        return res.status(500).json({ message: err.message })
     }
 })
 
-router.put('/deactivatecoupon/:foodid/:couponid',authMiddleWare,async(req,res)=>{
-    const resId=req.userId
-    const foodId=req.params.foodid
-    const couponId=req.params.couponid
-    const checkEligibility=`
+router.put('/deactivatecoupon/:foodid/:couponid', authMiddleWare, async (req, res) => {
+    const resId = req.userId
+    const foodId = req.params.foodid
+    const couponId = req.params.couponid
+    const checkEligibility = `
     SELECT COUNT(*) AS resCount
     FROM Restaurant_Menu
     WHERE food_id=? AND res_id=?
     `
-    const deactivateCoupon=`
+    const deactivateCoupon = `
     UPDATE couponed_items
     SET is_active=FALSE
     WHERE food_id=? AND is_active=TRUE AND coupon_id=?
     `
-    try
-    {
-        const [tester]=await db.query(checkEligibility,[foodId,resId])
-        if(tester[0].resCount==0)
-        {
-            return res.status(404).json({message:'Not authorized to give a coupon on menu item'})
+    try {
+        const [tester] = await db.query(checkEligibility, [foodId, resId])
+        if (tester[0].resCount == 0) {
+            return res.status(404).json({ message: 'Not authorized to give a coupon on menu item' })
         }
 
-        const[result]=await db.execute(deactivateCoupon,[foodId,couponId])
+        const [result] = await db.execute(deactivateCoupon, [foodId, couponId])
 
-        if(result.affectedRows==0)
-        {
-            return res.status(404).json({message:'Coupon could not be deactivated'})
+        if (result.affectedRows == 0) {
+            return res.status(404).json({ message: 'Coupon could not be deactivated' })
         }
 
-        return res.status(200).json({message:'Coupon deactivated successfully'})
+        return res.status(200).json({ message: 'Coupon deactivated successfully' })
 
-s
     }
-    catch(err)
-    {
-        return res.status(500).json({message:err.message})
+    catch (err) {
+        return res.status(500).json({ message: err.message })
     }
 })
 
