@@ -29,6 +29,32 @@ router.get('/profile', authMiddleWare, async (req, res) => {
     }
 });
 
+router.put('/updatefoodorgram',authMiddleWare,async(req,res)=>{
+    const resId=req.userId
+    const{answer}=req.body
+    const hasApplied=answer==='YES'?1:0
+    const updateFoodProgram=`
+    UPDATE restaurant
+    SET food_program=?
+    WHERE restaurant_id=?
+    `
+    try
+    {
+        const[result]=await db.execute(updateFoodProgram,[hasApplied,resId])
+        if(result.affectedRows==0)
+        {
+            return res.status(404).json({message:'Error in updating food program'})
+        }
+
+        return res.status(200).json({message:'Successfully updated status'})
+    }
+
+    catch(err)
+    {
+        return res.status(500).json({message:err.message})
+    }
+})
+
 
 //this one is related to restaurant cause its adding leftovers
 // POST /api/restaurant/leftover
@@ -180,7 +206,7 @@ router.get('/totalrevenue', authMiddleWare, async (req, res) => {
 
 //gets revenue for a particular time
 router.get('/revenueparticulartime', authMiddleWare, async (req, res) => {
-    const { monthReq, yearReq } = req.body
+    const { monthReq, yearReq } = req.query
     const resId = req.userId
     try {
         const getRevenueBasedOnParticularTime = `
@@ -260,7 +286,7 @@ router.put('/rejectorder', authMiddleWare, async (req, res) => {
 //get most ordered item for the restaurant
 router.get('/mostordereditem', authMiddleWare, async (req, res) => {
     const resId = req.userId
-    const { howMany } = req.body
+    const  howMany  = parseInt(req.query.howMany)||3
     try {
         const selectMostPopular = `
         SELECT food_id,name,food_image_path
