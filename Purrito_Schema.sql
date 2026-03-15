@@ -63,6 +63,10 @@ CREATE TABLE organization
     building_name VARCHAR(50),
     lat DECIMAL(10,8) NULL,
     lng DECIMAL(11,8) NULL,
+    contact_number CHAR(11),
+    moto VARCHAR(255),
+    ngo_certificate_url VARCHAR(512),
+    rep_nid_url VARCHAR(512),
     PRIMARY KEY(org_id)
 );
 
@@ -211,6 +215,8 @@ CREATE TABLE leftover_available
     taken_on DATE NULL,
     org_id INT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    status ENUM('AVAILABLE', 'PENDING', 'ACCEPTED', 'REJECTED', 'COLLECTED') DEFAULT 'AVAILABLE',
+    pickup_time DATETIME NULL
     PRIMARY KEY(res_id, food_id, made_on),
     FOREIGN KEY(res_id) REFERENCES restaurant(restaurant_id) ON DELETE CASCADE,
     FOREIGN KEY(food_id) REFERENCES Restaurant_Menu(food_id) ON DELETE CASCADE,
@@ -296,6 +302,21 @@ CREATE TABLE driver_assignment_logs
     responded_at TIMESTAMP NULL,
     FOREIGN KEY(order_id) REFERENCES orders(order_id)  ON DELETE CASCADE,
     FOREIGN KEY(driver_id) REFERENCES driver(driver_id) ON DELETE CASCADE
+);
+
+-- Table for recording organization's distributed food
+CREATE TABLE distributed_food (
+    dist_id INT AUTO_INCREMENT PRIMARY KEY,
+    org_id INT,
+    food_name VARCHAR(100) NOT NULL,
+    amount INT NOT NULL,
+    claim_no INT NULL,
+    restaurant_name VARCHAR(100) NOT NULL,
+    distribution_date DATE NOT NULL,
+    people_fed INT NOT NULL,
+    distribution_area VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(org_id) REFERENCES organization(org_id) ON DELETE CASCADE
 );
 
 -- Triggers
@@ -618,4 +639,4 @@ CREATE TABLE distributed_food (
     distribution_area VARCHAR(255) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(org_id) REFERENCES organization(org_id) ON DELETE CASCADE
-);
+);
