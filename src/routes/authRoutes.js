@@ -223,16 +223,25 @@ router.post('/user/login', async (req, res) => {
 });
 
 //Organization signup
-router.post('/organization/signup', async (req, res) => {
-    const { name, email, password, street, city, postalcode, buildingname } = req.body
+import { upload } from '../utils/cloudinary.js';
+
+router.post('/organization/signup', upload.fields([
+    { name: 'ngo_certificate', maxCount: 1 },
+    { name: 'rep_nid', maxCount: 1 }
+]), async (req, res) => {
+    const { name, email, password, street, city, postalcode, buildingname, moto, contact_number } = req.body
+    
+    const ngo_certificate_url = req.files?.['ngo_certificate'] ? req.files['ngo_certificate'][0].path : null;
+    const rep_nid_url = req.files?.['rep_nid'] ? req.files['rep_nid'][0].path : null;
+
     const hashedPassword = bcrypt.hashSync(password, 8)
     try {
         // Auto-geocode the organization address
         const { lat, lng } = await geocodeAddress(buildingname, street, city, 'Bangladesh');
         console.log(`Geocoded org address → lat:${lat}, lng:${lng}`);
 
-        const insertOrganization = `INSERT INTO organization(org_name,email_address,password,street,city,postal_code,building_name,lat,lng) VALUES(?,?,?,?,?,?,?,?,?)`
-        const [result] = await db.execute(insertOrganization, [name, email, hashedPassword, street, city, postalcode, buildingname, lat, lng])
+        const insertOrganization = `INSERT INTO organization(org_name,email_address,password,street,city,postal_code,building_name,lat,lng, moto, contact_number, ngo_certificate_url, rep_nid_url) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`
+        const [result] = await db.execute(insertOrganization, [name, email, hashedPassword, street, city, postalcode, buildingname, lat, lng, moto || null, contact_number || null, ngo_certificate_url, rep_nid_url])
         console.log(result.insertId)
         const token = jwt.sign({ orgId: result.insertId }, process.env.MYSECRETKEY, { expiresIn: '24h' })
         return res.status(201).json({ token: token, orgId: result.insertId })

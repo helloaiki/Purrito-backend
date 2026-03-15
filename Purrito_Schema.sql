@@ -596,3 +596,26 @@ BEGIN
 END$$
 
 DELIMITER ;
+
+-- Updates for Organization Features
+ALTER TABLE organization ADD COLUMN contact_number CHAR(11);
+ALTER TABLE organization ADD COLUMN moto VARCHAR(255);
+ALTER TABLE organization ADD COLUMN ngo_certificate_url VARCHAR(512);
+ALTER TABLE organization ADD COLUMN rep_nid_url VARCHAR(512);
+
+ALTER TABLE leftover_available ADD COLUMN status ENUM('AVAILABLE', 'PENDING', 'ACCEPTED', 'REJECTED', 'COLLECTED') DEFAULT 'AVAILABLE';
+ALTER TABLE leftover_available ADD COLUMN pickup_time DATETIME NULL;
+
+CREATE TABLE distributed_food (
+    dist_id INT AUTO_INCREMENT PRIMARY KEY,
+    org_id INT,
+    food_name VARCHAR(100) NOT NULL,
+    amount INT NOT NULL,
+    claim_no INT NULL,
+    restaurant_name VARCHAR(100) NOT NULL,
+    distribution_date DATE NOT NULL,
+    people_fed INT NOT NULL,
+    distribution_area VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(org_id) REFERENCES organization(org_id) ON DELETE CASCADE
+);

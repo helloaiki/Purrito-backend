@@ -1,6 +1,8 @@
 import express from 'express'
 import db from '../db.js'
 import authMiddleWare from '../middleware/authMiddleware.js'
+import { notifyRole } from '../server.js'
+import { startDriverSearch } from '../utils/fulfillment.js'
 
 const router = express.Router()
 
@@ -44,6 +46,108 @@ router.post('/leftover', authMiddleWare, async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Error adding leftover' });
+    }
+});
+
+// GET /api/restaurant/leftovers/pending
+router.get('/leftovers/pending', authMiddleWare, async (req, res) => {
+    const resId = req.userId;
+    try {
+        const query = `
+            SELECT la.*, rm.name as food_name, rm.food_image_path, o.org_name, o.contact_number as org_contact, o.email_address as org_email
+            FROM leftover_available la
+            JOIN Restaurant_Menu rm ON la.food_id = rm.food_id
+            JOIN organization o ON la.org_id = o.org_id
+            WHERE la.res_id = ? AND la.status = 'PENDING'
+            ORDER BY la.made_on ASC
+        `;
+        const [pendingClaims] = await db.execute(query, [resId]);
+        res.status(200).json(pendingClaims);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Error fetching pending claims' });
+    }
+});
+
+// POST /api/restaurant/leftovers/accept
+router.post('/leftovers/accept', authMiddleWare, async (req, res) => {
+    const resId = req.userId;
+    const { food_id, org_id, made_on, pickup_time } = req.body;
+
+    if (!pickup_time) {
+        return res.status(400).json({ message: 'Pickup time is required to accept a claim' });
+    }
+
+    try {
+        const query = `
+            UPDATE leftover_available
+            SET status = 'ACCEPTED', pickup_time = ?
+            WHERE res_id = ? AND food_id = ? AND org_id = ? AND made_on = ? AND status = 'PENDING'
+        `;
+        const [result] = await db.execute(query, [pickup_time, resId, food_id, org_id, made_on]);
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Claim not found or not in PENDING state' });
+        }
+
+        const [foodDetails] = await db.execute('SELECT name FROM Restaurant_Menu WHERE food_id = ?', [food_id]);
+        const foodName = foodDetails[0] ? foodDetails[0].name : `Food #${food_id}`;
+
+        await db.execute(
+            'INSERT INTO notifications (org_id, role, title, message, type) VALUES (?,?,?,?,?)',
+            [org_id, 'organization', 'Claim Accepted', `Your claim for ${foodName} has been accepted. Pickup at: ${pickup_time}`, 'CLAIM_ACCEPTED']
+        )
+
+        notifyRole('organization', org_id, {
+            title: 'Claim Accepted',
+            message: `Your claim for ${foodName} has been accepted. Pickup at: ${pickup_time}`,
+            type: 'CLAIM_ACCEPTED',
+            food_id: food_id
+        })
+
+        res.status(200).json({ message: 'Claim accepted successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Error accepting claim' });
+    }
+});
+
+// POST /api/restaurant/leftovers/reject
+router.post('/leftovers/reject', authMiddleWare, async (req, res) => {
+    const resId = req.userId;
+    const { food_id, org_id, made_on } = req.body;
+
+    try {
+        const query = `
+            UPDATE leftover_available
+            SET status = 'REJECTED'
+            WHERE res_id = ? AND food_id = ? AND org_id = ? AND made_on = ? AND status = 'PENDING'
+        `;
+        const [result] = await db.execute(query, [resId, food_id, org_id, made_on]);
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Claim not found or not in PENDING state' });
+        }
+
+        const [foodDetails] = await db.execute('SELECT name FROM Restaurant_Menu WHERE food_id = ?', [food_id]);
+        const foodName = foodDetails[0] ? foodDetails[0].name : `Food #${food_id}`;
+
+        await db.execute(
+            'INSERT INTO notifications (org_id, role, title, message, type) VALUES (?,?,?,?,?)',
+            [org_id, 'organization', 'Claim Rejected', `Your claim for ${foodName} has been rejected.`, 'CLAIM_REJECTED']
+        )
+
+        notifyRole('organization', org_id, {
+            title: 'Claim Rejected',
+            message: `Your claim for ${foodName} has been rejected.`,
+            type: 'CLAIM_REJECTED',
+            food_id: food_id
+        })
+
+        res.status(200).json({ message: 'Claim rejected successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Error rejecting claim' });
     }
 });
 
@@ -504,9 +608,6 @@ router.get('/menu/categories', authMiddleWare, async (req, res) => {
         return res.status(500).json({ message: err.message })
     }
 })
-
-import { startDriverSearch } from '../utils/fulfillment.js';
-import { notifyRole } from '../server.js';
 
 // PUT /api/restaurant/orders/:id/status
 router.put('/orders/:id/status', authMiddleWare, async (req, res) => {
