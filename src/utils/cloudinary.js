@@ -12,6 +12,7 @@ const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
     folder: 'purrito',
+    upload_preset: 'purrito_preset',
     allowed_formats: ['jpg', 'png', 'jpeg', 'pdf', 'webp'],
   },
 });
