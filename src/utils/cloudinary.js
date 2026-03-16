@@ -1,6 +1,5 @@
-import { v2 as cloudinary } from 'cloudinary';
-import { CloudinaryStorage } from 'multer-storage-cloudinary';
-import multer from 'multer';
+import { v2 as cloudinary } from "cloudinary";
+import multer from "multer";
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -8,12 +7,9 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-const storage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: 'purrito',
-    allowed_formats: ['jpg', 'png', 'jpeg', 'pdf', 'webp'],
-  },
+// Use memory storage (recommended)
+export const upload = multer({
+  storage: multer.memoryStorage(),
 });
 
-export const upload = multer({ storage: storage });
+export default cloudinary;

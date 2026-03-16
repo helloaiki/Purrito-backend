@@ -3,6 +3,7 @@ import db from '../db.js'
 import authMiddleWare from '../middleware/authMiddleware.js'
 import { notifyRole } from '../server.js'
 import { startDriverSearch } from '../utils/fulfillment.js'
+import cloudinary,{upload} from '../utils/cloudinary.js'
 
 const router = express.Router()
 
@@ -405,6 +406,7 @@ router.get('/mostordereditem', authMiddleWare, async (req, res) => {
 
 //gets the menu for the restaurant
 router.get('/menu/items', authMiddleWare, async (req, res) => {
+    console.log('hello')
     const resId = req.userId
     try {
         const getAllMenuItems = `SELECT *
@@ -412,6 +414,7 @@ router.get('/menu/items', authMiddleWare, async (req, res) => {
         WHERE res_id=?
         `
         const [result] = await db.query(getAllMenuItems, [resId]);
+        console.log(result)
 
         return res.status(200).json({ result });
     }
@@ -546,7 +549,7 @@ router.get('/orders/new', authMiddleWare, async (req, res) => {
         const getNewOrders = `
         SELECT order_id
         FROM orders
-        WHERE restaurant_id=? AND status='PLACED'
+        WHERE restaurant_id=? AND status='WAITING'
         `
         const [result] = await db.query(getNewOrders, [resId])
         return res.status(200).json({ result })
@@ -688,6 +691,30 @@ router.put('/orders/:id/status', authMiddleWare, async (req, res) => {
         res.status(500).json({ message: 'Error updating order status' });
     }
 });
+
+//file upload
+
+router.post("/uploadimage",upload.single("image"),async(req,res)=>{
+    try
+    {
+        const result=await cloudinary.uploader.upload_stream(
+            {folder:"restaurants"},
+            (err,result)=>{
+                if(err)
+                {
+                    return res.status(500).json({err})
+                }
+                res.json({imageUrl:result.secure_url})
+            }
+        )
+
+        result.end(req.file.buffer)
+    }
+    catch(err)
+    {
+        return res.status(500).json({message:err.message})
+    }
+})
 
 
 //coupon stuff
