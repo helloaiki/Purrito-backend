@@ -103,8 +103,8 @@ export async function offerOrderToDriver(orderId, driverId) {
 
         const message = `New delivery available (#${orderId}). Earn more now!`;
         const [res] = await db.execute(
-            'INSERT INTO notifications (driver_id, role, title, message, type) VALUES (?, "driver", "Order Offer", ?, "ORDER_OFFER")',
-            [driverId, message]
+            'INSERT INTO notifications (driver_id, role, title, message, type, order_id) VALUES (?, "driver", "Order Offer", ?, "ORDER_OFFER", ?)',
+            [driverId, message, orderId]
         );
 
         notifyRole('driver', driverId, {

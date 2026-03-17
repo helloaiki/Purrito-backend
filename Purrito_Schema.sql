@@ -279,6 +279,7 @@ CREATE TABLE notifications
     driver_id INT NULL,
     restaurant_id INT NULL,
     org_id INT NULL,
+    order_id INT NULL,
     role ENUM('user','driver','restaurant','organization') NOT NULL,
     title VARCHAR(100) NOT NULL,
     message TEXT NOT NULL,
@@ -576,7 +577,7 @@ BEGIN
     -- Mark the assignment log as ACCEPTED
     UPDATE driver_assignment_logs
     SET status = 'ACCEPTED', responded_at = NOW()
-    WHERE order__id = p_order_id AND driver_id = p_driver_id;
+    WHERE order_id = p_order_id AND driver_id = p_driver_id;
 
     -- Record driver income
     INSERT INTO driver_income (order_id, driver_id, payment, payment_date, has_delivered)
@@ -611,8 +612,8 @@ BEGIN
         DATE_FORMAT(payment_date, '%a') AS day,
         ROUND(SUM(payment), 2) AS dailyRevenue
     FROM driver_income
-    WHERE driver_id = p_driver_id AND has_delivered =1 AND payment_date >= DATE_SUB(CURDTAE(), INTERVAL 6 DAY)
-    GROUP BY DATE(payment_date)
+    WHERE driver_id = p_driver_id AND has_delivered =1 AND payment_date >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+    GROUP BY DATE(payment_date), DATE_FORMAT(payment_date, '%a')
     ORDER BY DATE(payment_date) ASC;
 END$$
 

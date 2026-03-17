@@ -236,7 +236,7 @@ router.get('/orderinformation', authMiddleWare, async (req, res) => {
     try {
         const { orderId } = req.query
         const getOrderInfo = `
-            SELECT R.res_name AS restaurant_name,R.res_image_path AS restaurant_image,R.street,R.city,R.postal_code,R.building_name,O.delivery_address,O.delivery_lat,O.delivery_lng, O.status
+            SELECT R.res_name AS restaurant_name,R.res_image_path AS restaurant_image,R.street,R.city,R.postal_code,R.building_name,R.lat AS restaurant_lat,R.lng AS restaurant_lng, O.delivery_address,O.delivery_lat,O.delivery_lng, O.status
             FROM restaurant R
             JOIN orders O on R.restaurant_id=O.restaurant_id AND order_id=?
         `
@@ -278,12 +278,22 @@ router.put('/acceptOrder', authMiddleWare, async (req, res) => {
         const acceptOrderAsDriver = `
         UPDATE orders
         SET driver_id=?, status='PREPARING'
-        WHERE status='PLACED' AND driver_id IS NULL AND order_id=?
+        WHERE status IN ('PLACED', 'PREPARING') AND driver_id IS NULL AND order_id=?
         `
         const [result] = await db.execute(acceptOrderAsDriver, [driverId, orderId])
         if (result.affectedRows == 0) {
             return res.status(409).json({ message: 'Order already taken or not available' })
         }
+
+        const [[order]] = await db.execute(
+            'SELECT delivery_fee, user_id FROM orders WHERE order_id=?',
+            [orderId]
+        );
+
+        await db.execute(
+            'INSERT INTO driver_income (order_id, driver_id, payment, payment_date, has_delivered) VALUES (?, ?, ?, CURDATE(), FALSE)',
+            [orderId, driverId, order.delivery_fee]
+        );
 
         await db.execute(
             'INSERT INTO driver_assignment_logs (order_id, driver_id, status, responded_at) VALUES (?,?,?,NOW())',
@@ -379,7 +389,7 @@ router.get('/ordersavailable', authMiddleWare, async (req, res) => {
                 (SELECT COUNT(*) FROM order_item oi WHERE oi.order_id = o.order_id) AS item_count
             FROM orders o
             JOIN restaurant r ON o.restaurant_id = r.restaurant_id
-            WHERE o.status = 'PLACED' AND o.driver_id IS NULL
+            WHERE o.status IN ('PLACED', 'PREPARING') AND o.driver_id IS NULL
             ORDER BY o.created_at ASC
         `);
         res.status(200).json(orders);

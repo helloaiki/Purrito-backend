@@ -564,9 +564,9 @@ router.get('/orders/ongoing', authMiddleWare, async (req, res) => {
     const resId = req.userId
     try {
         const getOngoingOrders = `
-        SELECT order_id
+        SELECT order_id, status
         FROM orders
-        WHERE restaurant_id=? AND status='PREPARING'
+        WHERE restaurant_id=? AND status IN ('PREPARING', 'PLACED')
         `
         const [result] = await db.query(getOngoingOrders, [resId])
         return res.status(200).json({ result })

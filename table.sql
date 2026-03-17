@@ -587,7 +587,7 @@ BEGIN
     -- Mark the assignment log as ACCEPTED
     UPDATE driver_assignment_logs
     SET status = 'ACCEPTED', responded_at = NOW()
-    WHERE order__id = p_order_id AND driver_id = p_driver_id;
+    WHERE order_id = p_order_id AND driver_id = p_driver_id;
 
     -- Record driver income
     INSERT INTO driver_income (order_id, driver_id, payment, payment_date, has_delivered)
@@ -622,8 +622,8 @@ BEGIN
         DATE_FORMAT(payment_date, '%a') AS day,
         ROUND(SUM(payment), 2) AS dailyRevenue
     FROM driver_income
-    WHERE driver_id = p_driver_id AND has_delivered =1 AND payment_date >= DATE_SUB(CURDTAE(), INTERVAL 6 DAY)
-    GROUP BY DATE(payment_date)
+    WHERE driver_id = p_driver_id AND has_delivered =1 AND payment_date >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+    GROUP BY DATE(payment_date), DATE_FORMAT(payment_date, '%a')
     ORDER BY DATE(payment_date) ASC;
 END$$
 
@@ -651,3 +651,5 @@ CREATE TABLE distributed_food (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(org_id) REFERENCES organization(org_id) ON DELETE CASCADE
 );
+
+ALTER TABLE notifications ADD COLUMN order_id INT NULL;
