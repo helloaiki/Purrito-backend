@@ -3,7 +3,7 @@ import db from '../db.js'
 import authMiddleWare from '../middleware/authMiddleware.js'
 import { notifyRole } from '../server.js'
 import { startDriverSearch } from '../utils/fulfillment.js'
-import cloudinary,{upload} from '../utils/cloudinary.js'
+import cloudinary, { upload } from '../utils/cloudinary.js'
 
 const router = express.Router()
 
@@ -32,29 +32,26 @@ router.get('/profile', authMiddleWare, async (req, res) => {
     }
 });
 
-router.put('/updatefoodorgram',authMiddleWare,async(req,res)=>{
-    const resId=req.userId
-    const{answer}=req.body
-    const hasApplied=answer==='YES'?1:0
-    const updateFoodProgram=`
+router.put('/updatefoodorgram', authMiddleWare, async (req, res) => {
+    const resId = req.userId
+    const { answer } = req.body
+    const hasApplied = answer === 'YES' ? 1 : 0
+    const updateFoodProgram = `
     UPDATE restaurant
     SET food_program=?
     WHERE restaurant_id=?
     `
-    try
-    {
-        const[result]=await db.execute(updateFoodProgram,[hasApplied,resId])
-        if(result.affectedRows==0)
-        {
-            return res.status(404).json({message:'Error in updating food program'})
+    try {
+        const [result] = await db.execute(updateFoodProgram, [hasApplied, resId])
+        if (result.affectedRows == 0) {
+            return res.status(404).json({ message: 'Error in updating food program' })
         }
 
-        return res.status(200).json({message:'Successfully updated status'})
+        return res.status(200).json({ message: 'Successfully updated status' })
     }
 
-    catch(err)
-    {
-        return res.status(500).json({message:err.message})
+    catch (err) {
+        return res.status(500).json({ message: err.message })
     }
 })
 
@@ -386,7 +383,7 @@ router.put('/rejectorder', authMiddleWare, async (req, res) => {
 //get most ordered item for the restaurant
 router.get('/mostordereditem', authMiddleWare, async (req, res) => {
     const resId = req.userId
-    const  howMany  = parseInt(req.query.howMany)||3
+    const howMany = parseInt(req.query.howMany) || 3
     try {
         const selectMostPopular = `
         SELECT food_id,name,food_image_path
@@ -664,7 +661,7 @@ router.put('/orders/:id/status', authMiddleWare, async (req, res) => {
         const title = status === 'REJECTED' ? 'Order Rejected' : 'Order Accepted';
         const message = status === 'REJECTED'
             ? `Sorry, your order #${orderId} was rejected: ${rejection_reason}`
-            : `Great news! Your order #${orderId} has been accepted and is being prepared.`;
+            : `Great news! Your order #${orderId} has been accepted by the restaurant.`;
 
         const [notif] = await db.execute(
             'INSERT INTO notifications (user_id, role, title, message, type) VALUES (?, "user", ?, ?, "ORDER_STATUS")',
@@ -694,25 +691,22 @@ router.put('/orders/:id/status', authMiddleWare, async (req, res) => {
 
 //file upload
 
-router.post("/uploadimage",upload.single("image"),async(req,res)=>{
-    try
-    {
-        const result=await cloudinary.uploader.upload_stream(
-            {folder:"restaurants"},
-            (err,result)=>{
-                if(err)
-                {
-                    return res.status(500).json({err})
+router.post("/uploadimage", upload.single("image"), async (req, res) => {
+    try {
+        const result = await cloudinary.uploader.upload_stream(
+            { folder: "restaurants" },
+            (err, result) => {
+                if (err) {
+                    return res.status(500).json({ err })
                 }
-                res.json({imageUrl:result.secure_url})
+                res.json({ imageUrl: result.secure_url })
             }
         )
 
         result.end(req.file.buffer)
     }
-    catch(err)
-    {
-        return res.status(500).json({message:err.message})
+    catch (err) {
+        return res.status(500).json({ message: err.message })
     }
 })
 

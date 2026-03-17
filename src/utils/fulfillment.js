@@ -115,7 +115,7 @@ export async function offerOrderToDriver(orderId, driverId) {
             type: 'ORDER_OFFER'
         });
 
-        setTimeout(() => checkOfferTimeout(orderId, driverId), 45000);
+        setTimeout(() => checkOfferTimeout(orderId, driverId), 60000);
     } catch (err) {
         console.error('Error offering order:', err);
     }
@@ -125,6 +125,7 @@ async function checkOfferTimeout(orderId, driverId) {
     const [log] = await db.execute('SELECT status FROM driver_assignment_logs WHERE order_id = ? AND driver_id = ? AND status = "PENDING"', [orderId, driverId]);
     if (log.length > 0) {
         await db.execute('UPDATE driver_assignment_logs SET status = "TIMEOUT", responded_at = NOW() WHERE order_id = ? AND driver_id = ?', [orderId, driverId]);
+        await db.execute('UPDATE notifications SET is_read = TRUE driver_id = ? AND type = "ORDER_OFFER" AND order_id = ? AND is_read = FALSE', [driverId, orderId]);
         findNextDriver(orderId);
     }
 }

@@ -65,16 +65,27 @@ router.put('/acceptOffer', authMiddleWare, async (req, res) => {
             [orderId, driverId, notif_id || 0]
         )
 
-        const [user] = await db.query('SELECT user_id FROM orders WHERE order_id = ?', [orderId]);
+        const [order] = await db.query('SELECT user_id, restaurant_id FROM orders WHERE order_id = ?', [orderId]);
 
-        if (user.length > 0) {
-            const title = "Driver Assigned!";
-            const message = `A driver has been assigned to your order #${orderId} and is on the way to the restaurant.`;
-            const [notif] = await db.execute(
+        if (order.length > 0) {
+            const { user_id, restaurant_id } = order[0];
+
+            const userTitle = "Driver Assigned!";
+            const userMessage = `A driver has been assigned to your order #${orderId} and is on the way to the restaurant.`;
+            await db.execute(
                 'INSERT INTO notifications (user_id, role, title, message, type) VALUES (?, "user", ?, ?, "DRIVER_ASSIGNED")',
-                [user[0].user_id, title, message]
+                [user_id, userTitle, userMessage]
             );
-            notifyRole('user', user[0].user_id, { title, message, type: 'DRIVER_ASSIGNED', order_id: orderId });
+            notifyRole('user', user_id, { title: userTitle, message: userMessage, type: 'DRIVER_ASSIGNED', order_id: orderId });
+
+            const restaurantTitle = "Driver Assigned!";
+            const restaurantMessage = `A driver has been assigned to your order #${orderId} and is on the way to the restaurant.`;
+            await db.execute(
+                'INSERT INTO notifications (restaurant_id, role, title, message, type) VALUES (?, "restaurant", ?, ?, "DRIVER_ASSIGNED")',
+                [restaurant_id, restaurantTitle, restaurantMessage]
+            );
+            notifyRole('restaurant', restaurant_id, { title: restaurantTitle, message: restaurantMessage, type: 'DRIVER_ASSIGNED', order_id: orderId });
+
         }
 
         res.json({ message: 'Order accepted successfully' });
@@ -100,8 +111,15 @@ router.put('/declineOffer', authMiddleWare, async (req, res) => {
             await db.execute('UPDATE notifications SET is_read = TRUE WHERE notif_id = ?', [notif_id]);
         }
 
+        const [orderRows] = await db.execute(
+            'SELECT status FROM orders WHERE order_id = ?',
+            [orderId]
+        );
+        const orderStatus = orderRows[0]?.status;
         // Trigger search for next driver
-        findNextDriver(orderId);
+        if (orderRows.length > 0 && ['WAITING', 'PLACED'].includes(orderStatus)) {
+            findNextDriver(orderId);
+        }
 
         res.json({ message: 'Offer declined' });
     } catch (err) {
@@ -285,14 +303,14 @@ router.put('/acceptOrder', authMiddleWare, async (req, res) => {
             return res.status(409).json({ message: 'Order already taken or not available' })
         }
 
-        const [[order]] = await db.execute(
+        const [[order1]] = await db.execute(
             'SELECT delivery_fee, user_id FROM orders WHERE order_id=?',
             [orderId]
         );
 
         await db.execute(
             'INSERT INTO driver_income (order_id, driver_id, payment, payment_date, has_delivered) VALUES (?, ?, ?, CURDATE(), FALSE)',
-            [orderId, driverId, order.delivery_fee]
+            [orderId, driverId, order1.delivery_fee]
         );
 
         await db.execute(
@@ -300,16 +318,26 @@ router.put('/acceptOrder', authMiddleWare, async (req, res) => {
             [orderId, driverId, 'ACCEPTED']
         );
 
-        const [user] = await db.query(`SELECT user_id FROM orders WHERE order_id=?`, [orderId]);
-        if (user.length > 0) {
-            const title = "Driver Assigned!";
-            const message = `A driver has been assigned to your order #${orderId} and is on the way to the restaurant.`;
+        const [order] = await db.query('SELECT user_id, restaurant_id FROM orders WHERE order_id = ?', [orderId]);
+
+        if (order.length > 0) {
+            const { user_id, restaurant_id } = order[0];
+
+            const userTitle = "Driver Assigned!";
+            const userMessage = `A driver has been assigned to your order #${orderId} and is on the way to the restaurant. Your order is being prepared.`;
             await db.execute(
-                `INSERT INTO notifications (user_id, role, title, message, type)
-                VALUES (?,?,?,?,?)`,
-                [user[0].user_id, 'user', title, message, 'DRIVER_ASSIGNED']
+                'INSERT INTO notifications (user_id, role, title, message, type) VALUES (?, "user", ?, ?, "DRIVER_ASSIGNED")',
+                [user_id, userTitle, userMessage]
             );
-            notifyRole('user', user[0].user_id, { title, message, type: "DRIVER_ASSIGNED", order_id: orderId });
+            notifyRole('user', user_id, { title: userTitle, message: userMessage, type: 'DRIVER_ASSIGNED', order_id: orderId });
+
+            const resTitle = "Driver Assigned!";
+            const resMessage = `A driver has been assigned to order #${orderId} and is heading to you.`;
+            await db.execute(
+                'INSERT INTO notifications (restaurant_id, role, title, message, type) VALUES (?, "restaurant", ?, ?, "DRIVER_ASSIGNED")',
+                [restaurant_id, resTitle, resMessage]
+            );
+            notifyRole('restaurant', restaurant_id, { title: resTitle, message: resMessage, type: 'DRIVER_ASSIGNED', order_id: orderId });
         }
 
         return res.status(200).json({ message: 'Successfully appointed as driver' })
@@ -398,6 +426,28 @@ router.get('/ordersavailable', authMiddleWare, async (req, res) => {
         res.status(500).json({ message: err.message });
     }
 });
+
+router.get('/order-history', authMiddleWare, async (req, res) => {
+    const driverId = req.userId;
+    try {
+        const [orders] = await db.execute(`
+            SELECT o.order_id, o.price, di.payment AS delivery_fee, o.delivery_address, o.status, o.created_at, o.updated_at, r.res_name AS restaurant_name,
+                r.city AS restaurant_city, (SELECT COUNT(*) FROM order_item oi WHERE oi.order_id = o.order_id) AS item_count,
+                (SELECT IFNULL(AVG(rd.rating), 0)FROM rating_driver rd WHERE rd.order_id = o.order_id) AS rating
+            FROM orders o
+            JOIN restaurant r ON o.restaurant_id = r.restaurant_id
+            JOIN driver_income di ON o.order_id = di.order_id
+            WHERE o.driver_id = ? AND o.status = 'DELIVERED'
+            ORDER BY o.updated_at DESC
+            LIMIT 50
+            `, [driverId]);
+        res.status(200).json(orders);
+    }
+    catch (err) {
+        console.error('Error fetching order history:', err);
+        res.status(500).json({ message: err.message });
+    }
+})
 
 export default router
 

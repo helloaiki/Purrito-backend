@@ -68,7 +68,8 @@ wss.on('connection', (ws) => {
 
             // Identify for notifications
             if (data.type === 'IDENTITY_REGISTER' && data.role && data.id) {
-                const { role, id } = data;
+                const role = data.role;
+                const id = String(data.id);
                 if (roleClients[role]) {
                     if (!roleClients[role][id]) {
                         roleClients[role][id] = new Set();
@@ -94,9 +95,10 @@ wss.on('connection', (ws) => {
 });
 
 export const notifyRole = (role, id, data) => {
-    if (roleClients[role] && roleClients[role][id]) {
+    const key = String(id);
+    if (roleClients[role] && roleClients[role][key]) {
         const payload = JSON.stringify({ type: 'NOTIFICATION', ...data });
-        roleClients[role][id].forEach(ws => {
+        roleClients[role][key].forEach(ws => {
             if (ws.readyState === WebSocket.OPEN) {
                 ws.send(payload);
             }

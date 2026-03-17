@@ -447,7 +447,7 @@ router.get('/orders/:order_id', authMiddleWare, async (req, res) => {
         const getOrders = `
             SELECT o.order_id, o.price, o.status, o.delivery_address, o.delivery_lat, o.delivery_lng, o.payment_method,
                o.rejection_reason, o.created_at, o.driver_id,
-               r.res_name, r.lat AS res_lat, r.lng AS res_lng,
+               r.res_name AS restaurant_name, r.lat AS res_lat, r.lng AS res_lng,
                d.user_name AS driver_name, d.lat AS driver_lat, d.lng AS driver_lng, d.phone_number AS driver_phone
             FROM orders o
             JOIN restaurant r ON o.restaurant_id = r.restaurant_id
