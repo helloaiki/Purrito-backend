@@ -11,6 +11,8 @@ CREATE TABLE user
     phone_number CHAR(11),
     last_lat DECIMAL(10,8) NULL,
     last_lng DECIMAL(11,8) NULL,
+    is_verified BOOLEAN DEFAULT FALSE,
+    verification_token VARCHAR(64) NULL,
     PRIMARY KEY(user_id)
 );
 
@@ -318,6 +320,14 @@ CREATE TABLE distributed_food (
     distribution_area VARCHAR(255) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(org_id) REFERENCES organization(org_id) ON DELETE CASCADE
+);
+
+CREATE TABLE password_reset_tokens (
+    token VARCHAR(64) PRIMARY KEY,
+    user_id INT NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    used BOOLEAN DEFAULT FALSE,
+    FOREIGN KEY (user_id) REFERENCES user(user_id) ON DELETE CASCADE
 );
 
 -- Triggers

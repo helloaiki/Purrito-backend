@@ -653,3 +653,14 @@ CREATE TABLE distributed_food (
 );
 
 ALTER TABLE notifications ADD COLUMN order_id INT NULL;
+
+ALTER TABLE user ADD COLUMN is_varified BOOLEAN DEFAULT FALSE;
+ALTER TABLE user ADD COLUMN verification_token VARCHAR(64) NULL;
+
+CREATE TABLE password_reset_tokens(
+    token VARCHAR(64) PRIMARY KEY,
+    user_id INT NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    used BOOLEAN DEFAULT FALSE,
+    FOREIGN KEY (user_id) REFERENCES user(user_id) ON DELETE CASCADE
+);

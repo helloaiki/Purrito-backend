@@ -33,11 +33,17 @@ export async function startDriverSearch(orderId) {
 export async function findNextDriver(orderId) {
     try {
         const [orderRows] = await db.execute(
-            'SELECT restaurant_id, search_radius_km, search_start_time, delivery_fee, is_pickup_offered FROM orders WHERE order_id = ?',
+            'SELECT restaurant_id, search_radius_km, search_start_time, delivery_fee, is_pickup_offered, order_status FROM orders WHERE order_id = ?',
             [orderId]
         );
         if (orderRows.length === 0) return;
-        const { restaurant_id, search_radius_km, search_start_time, delivery_fee, is_pickup_offered } = orderRows[0];
+        const { restaurant_id, search_radius_km, search_start_time, delivery_fee, is_pickup_offered, order_status } = orderRows[0];
+
+        const activeStatuses = ['PLACED', 'WAITING'];
+        if (!activeStatuses.includes(order_status)) {
+            console.log(`Fulfillment: Order ${orderId} is "${order_status}". Stopping driver search.`);
+            return;
+        }
 
         // Check for 10-minute timeout for fee increase
         const startTime = new Date(search_start_time).getTime();
@@ -71,7 +77,7 @@ export async function findNextDriver(orderId) {
         const excludedIds = offeredDrivers.map(d => d.driver_id);
 
         const [availableDrivers] = await db.execute(
-            'SELECT driver_id, lat, lng FROM driver WHERE lat IS NOT NULL AND lng IS NOT NULL AND last_active > NOW() - INTERVAL 15 MINUTE'
+            'SELECT driver_id, lat, lng FROM driver WHERE lat IS NOT NULL AND lng IS NOT NULL AND last_active > NOW() - INTERVAL 15 MINUTE AND NOT EXISTS (SELECT 1 FROM driver_assignment_logs WHERE status="PENDING" AND driver_assignment_logs.driver_id = driver.driver_id)'
         );
 
         const eligibleDrivers = availableDrivers
@@ -122,10 +128,20 @@ export async function offerOrderToDriver(orderId, driverId) {
 }
 
 async function checkOfferTimeout(orderId, driverId) {
+    const [orderRows] = await db.execute(
+        'SELECT order_status FROM orders WHERE order_id = ?', [orderId]
+    );
+
+    if (orderRows.length === 0) return;
+
+    const { order_status } = orderRows[0];
+    if (!['PLACED', 'WAITING'].includes(order_status)) return;
+
+
     const [log] = await db.execute('SELECT status FROM driver_assignment_logs WHERE order_id = ? AND driver_id = ? AND status = "PENDING"', [orderId, driverId]);
     if (log.length > 0) {
         await db.execute('UPDATE driver_assignment_logs SET status = "TIMEOUT", responded_at = NOW() WHERE order_id = ? AND driver_id = ?', [orderId, driverId]);
-        await db.execute('UPDATE notifications SET is_read = TRUE driver_id = ? AND type = "ORDER_OFFER" AND order_id = ? AND is_read = FALSE', [driverId, orderId]);
+        await db.execute('UPDATE notifications SET is_read = TRUE WHERE driver_id = ? AND type = "ORDER_OFFER" AND order_id = ? AND is_read = FALSE', [driverId, orderId]);
         findNextDriver(orderId);
     }
 }

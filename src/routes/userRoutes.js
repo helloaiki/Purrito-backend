@@ -2,6 +2,7 @@ import express from 'express'
 import db from '../db.js'
 import authMiddleWare from '../middleware/authMiddleware.js'
 import { notifyRole } from '../server.js'
+import bcrypt from 'bcryptjs';
 const router = express.Router()
 
 //GET /api/user/profile
@@ -52,6 +53,29 @@ router.delete('/deleteaccount', authMiddleWare, async (req, res) => {
         res.status(500).json({ message: 'Error deleting account' })
     }
 });
+
+//PUT /api/user/change-password
+router.put('/change-password', authMiddleWare, async (req, res) => {
+    const userId = req.userId;
+    const { current_password, new_password } = req.body;
+    try {
+        const [user] = await db.execute(
+            'SELECT password FROM user WHERE user_id = ?',
+            [userId]
+        );
+        if (user.length === 0) return res.status(404).json({ message: 'User not found' });
+
+        const isMatch = bcrypt.compareSync(current_password, user[0].password);
+        if (!isMatch) return res.status(401).json({ message: 'Incorrect current password' });
+
+        const hashedPassword = bcrypt.hashSync(new_password, 8);
+        const updatePassword = `UPDATE user SET password = ? WHERE user_id = ?`;
+        await db.execute(updatePassword, [hashedPassword, userId]);
+        res.status(200).json({ message: 'Password updated successfully' });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+})
 
 //Menu Routes
 // GET /api/user/menu

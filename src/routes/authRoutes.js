@@ -2,8 +2,18 @@ import express from 'express'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import db from '../db.js'
+import nodemailer from 'nodemailer';
+import crypto from 'crypto';
 
 const router = express.Router()
+
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
+});
 
 // Geocode an address string → { lat, lng } using Nominatim (free, no API key)
 const geocodeAddress = async (...parts) => {
@@ -170,23 +180,47 @@ router.post('/restaurant/login', async (req, res) => {
 router.post('/user/signup', async (req, res) => {
     const { name, email, password, contact } = req.body;
     const hashedPassword = bcrypt.hashSync(password, 8);
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        return res.status(400).json({ message: 'Invalid email address format' });
+    }
 
     try {
-        const insertUser = `INSERT INTO  user (user_name, email_address, password, phone_number) VALUES (?, ?, ?, ?)`;
+        const insertUser = `INSERT INTO  user (user_name, email_address, password, phone_number, verification_token, is_verified) VALUES (?, ?, ?, ?, ?, ?)`;
 
         const [result] = await db.execute(insertUser, [
             name,
             email,
             hashedPassword,
-            contact
+            contact,
+            verificationToken,
+            false
         ]);
 
-        const token = jwt.sign(
-            { userId: result.insertId },
-            process.env.MYSECRETKEY,
-            { expiresIn: '24h' }
-        );
-        return res.status(201).json({ token, userId: result.insertId });
+        const verifyLink = `http://localhost:5173/verify-email?token=${verificationToken}`;
+        try {
+            await transporter.sendMail({
+                from: `"Purrito" <${process.env.EMAIL_USER}>`,
+                to: email,
+                subject: 'Verify your Purrito account',
+                html: `
+                    <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
+                        <h2 style="color:#A34A39">Welcome to Purrito!</h2>
+                        <p>Click below to verify your email address.</p>
+                        <a href="${verifyLink}" style="display:inline-block;padding:12px 24px;background:#A34A39;color:white;border-radius:8px;text-decoration:none;font-weight:bold">
+                            Verify Email
+                        </a>
+                        <p style="color:#888;font-size:0.85rem;margin-top:20px">Link expires in 24 hours.</p>
+                    </div>
+                `
+            });
+            res.status(201).json({ message: 'Account created! Please check your email to verify.' });
+        } catch (emailErr) {
+            await db.execute('DELETE FROM user WHERE user_id = ?', [result.insertId]);
+            return res.status(400).json({ message: 'Could not send to this email. Please use a real email address.' });
+        }
     } catch (err) {
         return res.status(500).json({ message: err.message });
     }
@@ -204,6 +238,9 @@ router.post('/user/login', async (req, res) => {
         }
 
         const user = result[0];
+        if (!user.is_verified) {
+            return res.status(401).json({ message: 'Please verify your email before logging in.' });
+        }
         const doesPasswordMatch = await bcrypt.compare(password, user.password);
 
         if (!doesPasswordMatch) {
@@ -230,7 +267,7 @@ router.post('/organization/signup', upload.fields([
     { name: 'rep_nid', maxCount: 1 }
 ]), async (req, res) => {
     const { name, email, password, street, city, postalcode, buildingname, moto, contact_number } = req.body
-    
+
     const ngo_certificate_url = req.files?.['ngo_certificate'] ? req.files['ngo_certificate'][0].path : null;
     const rep_nid_url = req.files?.['rep_nid'] ? req.files['rep_nid'][0].path : null;
 
@@ -275,6 +312,98 @@ router.post('/organization/login', async (req, res) => {
         return res.status(503).json({ message: err.message })
     }
 
+});
+
+// GET /auth/verify-email?token=...
+router.get('/verify-email', async (req, res) => {
+    const { token } = req.query;
+    try {
+        const [rows] = await db.execute(
+            'SELECT user_id FROM user WHERE verification_token = ? AND is_verified = FALSE',
+            [token]
+        );
+
+        if (rows.length === 0) {
+            return res.status(400).json({ message: 'Invalid or already used verification link' });
+        }
+
+        await db.execute(
+            'UPDATE user SET is_verified = TRUE, verification_token = NULL WHERE user_id = ?',
+            [rows[0].user_id]
+        );
+        res.status(200).json({ message: 'Email verified successfully! You can now log in.' });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+//POST /auth/forgot-password
+router.post('/forgot-password', async (req, res) => {
+    const { email } = req.body;
+    try {
+        const [user] = await db.execute('SELECT user_id FROM user WHERE email_address = ?', [email]);
+        if (user.length === 0) {
+            return res.status(200).json({ message: 'If this email exists, a reset link has been sent.' });
+        }
+
+        const token = crypto.randomBytes(32).toString('hex');
+        const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+        await db.execute(
+            'INSERT INTO password_reset_tokens (token, user_id, expires_at) VALUES (?, ?, ?)',
+            [token, user[0].user_id, expiresAt]
+        );
+
+        const resetLink = `http://localhost:5173/reset-password?token=${token}`;
+        await transporter.sendMail({
+            from: `"Purrito" <${process.env.EMAIL_USER}>`,
+            to: email,
+            subject: 'Reset your Purrito password',
+            html: `
+                <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
+                    <h2 style="color:#A34A39">Reset your password</h2>
+                    <p>Click below to reset your password. This link expires in 15 minutes.</p>
+                    <a href="${resetLink}" style="display:inline-block;padding:12px 24px;background:#A34A39;color:white;border-radius:8px;text-decoration:none;font-weight:bold">
+                        Reset Password
+                    </a>
+                    <p style="color:#888;font-size:0.85rem;margin-top:20px">If you didn't request this, ignore this email.</p>
+                </div>
+            `
+        });
+        res.status(200).json({ message: 'If this email exists, a reset link has been sent.' });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+//POST /auth/reset-password
+router.post('/reset-password', async (req, res) => {
+    const { token, new_password } = req.body;
+    try {
+        const [rows] = await db.execute(
+            'SELECT user_id FROM password_reset_tokens WHERE token = ? AND expires_at > NOW() AND used = FALSE',
+            [token]
+        );
+
+        if (rows.length === 0) {
+            return res.status(400).json({ message: 'Invalid or expired reset token' });
+        }
+
+        const hashedPassword = bcrypt.hashSync(new_password, 8);
+        await db.execute(
+            'UPDATE user SET password = ? WHERE user_id = ?',
+            [hashedPassword, rows[0].user_id]
+        );
+
+        await db.execute(
+            'UPDATE password_reset_tokens SET used = TRUE WHERE token = ?',
+            [token]
+        );
+
+        res.status(200).json({ message: 'Password reset successfully' });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
 });
 
 
