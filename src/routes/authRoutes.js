@@ -188,7 +188,7 @@ router.post('/user/signup', async (req, res) => {
     }
 
     try {
-        const insertUser = `INSERT INTO  user (user_name, email_address, password, phone_number, verification_token, is_verified) VALUES (?, ?, ?, ?, ?, ?)`;
+        const insertUser = `INSERT INTO  user (user_name, email_address, password, phone_number, verification_token, is_verified, verification_token_expires_at) VALUES (?, ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 24 HOUR))`;
 
         const [result] = await db.execute(insertUser, [
             name,
@@ -222,6 +222,7 @@ router.post('/user/signup', async (req, res) => {
             return res.status(400).json({ message: 'Could not send to this email. Please use a real email address.' });
         }
     } catch (err) {
+        console.error(err);
         return res.status(500).json({ message: err.message });
     }
 });
@@ -317,23 +318,38 @@ router.post('/organization/login', async (req, res) => {
 // GET /auth/verify-email?token=...
 router.get('/verify-email', async (req, res) => {
     const { token } = req.query;
+
+    if (!token) {
+        return res.status(400).json({ message: 'No verification token found.' });
+    }
+
     try {
         const [rows] = await db.execute(
-            'SELECT user_id FROM user WHERE verification_token = ? AND is_verified = FALSE',
+            'SELECT user_id, is_verified, verification_token_expires_at > NOW() as is_valid FROM user WHERE verification_token = ?',
             [token]
         );
 
         if (rows.length === 0) {
-            return res.status(400).json({ message: 'Invalid or already used verification link' });
+            return res.status(400).json({ message: 'Invalid verification link or already used.' });
         }
 
-        await db.execute(
-            'UPDATE user SET is_verified = TRUE, verification_token = NULL WHERE user_id = ?',
-            [rows[0].user_id]
-        );
-        res.status(200).json({ message: 'Email verified successfully! You can now log in.' });
+        const user = rows[0];
+
+        if (!user.is_valid) {
+            return res.status(400).json({ message: 'Verification link has expired.' });
+        }
+
+        if (!user.is_verified) {
+            await db.execute(
+                'UPDATE user SET is_verified = TRUE WHERE user_id = ?',
+                [user.user_id]
+            );
+        }
+
+        return res.status(200).json({ message: 'Email verified successfully!' });
+
     } catch (err) {
-        res.status(500).json({ message: err.message });
+        return res.status(500).json({ message: err.message });
     }
 });
 
@@ -347,11 +363,9 @@ router.post('/forgot-password', async (req, res) => {
         }
 
         const token = crypto.randomBytes(32).toString('hex');
-        const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
-
         await db.execute(
-            'INSERT INTO password_reset_tokens (token, user_id, expires_at) VALUES (?, ?, ?)',
-            [token, user[0].user_id, expiresAt]
+            'INSERT INTO password_reset_tokens (token, user_id, expires_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 15 MINUTE))',
+            [token, user[0].user_id]
         );
 
         const resetLink = `http://localhost:5173/reset-password?token=${token}`;

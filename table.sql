@@ -664,3 +664,5 @@ CREATE TABLE password_reset_tokens(
     used BOOLEAN DEFAULT FALSE,
     FOREIGN KEY (user_id) REFERENCES user(user_id) ON DELETE CASCADE
 );
+
+ALTER TABLE user ADD COLUMN verification_token_expires_at DATETIME NULL;

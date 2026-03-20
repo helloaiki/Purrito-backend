@@ -13,6 +13,7 @@ CREATE TABLE user
     last_lng DECIMAL(11,8) NULL,
     is_verified BOOLEAN DEFAULT FALSE,
     verification_token VARCHAR(64) NULL,
+    verification_token_expires_at DATETIME NULL,
     PRIMARY KEY(user_id)
 );
 
@@ -322,6 +323,7 @@ CREATE TABLE distributed_food (
     FOREIGN KEY(org_id) REFERENCES organization(org_id) ON DELETE CASCADE
 );
 
+--Tokens needed for password reset
 CREATE TABLE password_reset_tokens (
     token VARCHAR(64) PRIMARY KEY,
     user_id INT NOT NULL,

@@ -688,4 +688,22 @@ router.post('/orders/:order_id/pickup-decline', authMiddleWare, async (req, res)
     }
 });
 
+//GET /api/user/saved-addresses
+router.get('/saved-addresses', authMiddleWare, async (req, res) => {
+    const userId = req.userId;
+    try {
+        const [rows] = await db.execute(`
+            SELECT DISTINCT delivery_address, delivery_lat, delivery_lng
+            FROM orders
+            WHERE user_id = ? AND delivery_address IS NOT NULL
+            ORDER BY created_at DESC
+            LIMIT 10
+            `, [userId]);
+        res.status(200).json(rows);
+    } catch (err) {
+        console.error('Error fetching saved addresses:', err);
+        res.status(500).json({ message: err.message });
+    }
+});
+
 export default router
