@@ -3,7 +3,7 @@ import db from '../db.js'
 import authMiddleWare from '../middleware/authMiddleware.js'
 import { notifyRole } from '../server.js'
 import { startDriverSearch } from '../utils/fulfillment.js'
-import cloudinary, { upload } from '../utils/cloudinary.js'
+import { upload, uploadToCloudinary } from '../utils/cloudinary.js'
 
 const router = express.Router()
 
@@ -64,12 +64,39 @@ router.post('/leftover', authMiddleWare, async (req, res) => {
     const qty = quantity || 1;
 
     try {
-        const insertLeftover = `INSERT INTO leftover_available (res_id, food_id, made_on, quantity) VALUES (?,?,?,?)`;
-        await db.execute(insertLeftover, [resId, food_id, made_on, qty]);
+        const checkQuery = `SELECT leftover_id FROM leftover_available WHERE res_id = ? AND food_id = ? AND made_on = ? AND status = 'AVAILABLE'`;
+        const [existing] = await db.execute(checkQuery, [resId, food_id, made_on]);
+
+        if (existing.length > 0) {
+            const updateLeftover = `UPDATE leftover_available SET quantity = quantity + ? WHERE leftover_id = ?`;
+            await db.execute(updateLeftover, [qty, existing[0].leftover_id]);
+        } else {
+            const insertLeftover = `INSERT INTO leftover_available (res_id, food_id, made_on, quantity) VALUES (?,?,?,?)`;
+            await db.execute(insertLeftover, [resId, food_id, made_on, qty]);
+        }
         res.status(200).json({ message: 'Leftover added successfully' });
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Error adding leftover' });
+    }
+});
+
+// GET /api/restaurant/leftovers/available
+router.get('/leftovers/available', authMiddleWare, async (req, res) => {
+    const resId = req.userId;
+    try {
+        const query = `
+            SELECT la.leftover_id, la.food_id, DATE_FORMAT(la.made_on, '%Y-%m-%d') as made_on, la.quantity, rm.name as food_name, rm.food_image_path
+            FROM leftover_available la
+            JOIN Restaurant_Menu rm ON la.food_id = rm.food_id
+            WHERE la.res_id = ? AND la.status = 'AVAILABLE' AND la.made_on >= DATE_SUB(CURDATE(), INTERVAL 1 DAY)
+            ORDER BY la.made_on DESC
+        `;
+        const [availableLeftovers] = await db.execute(query, [resId]);
+        res.status(200).json(availableLeftovers);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Error fetching available leftovers' });
     }
 });
 
@@ -78,7 +105,8 @@ router.get('/leftovers/pending', authMiddleWare, async (req, res) => {
     const resId = req.userId;
     try {
         const query = `
-            SELECT la.*, rm.name as food_name, rm.food_image_path, o.org_name, o.contact_number as org_contact, o.email_address as org_email
+            SELECT la.res_id, la.food_id, DATE_FORMAT(la.made_on, '%Y-%m-%d') as made_on, la.quantity, la.taken_on, la.org_id, la.created_at, la.status, la.pickup_time, 
+                   rm.name as food_name, rm.food_image_path, o.org_name, o.contact_number as org_contact, o.email_address as org_email
             FROM leftover_available la
             JOIN Restaurant_Menu rm ON la.food_id = rm.food_id
             JOIN organization o ON la.org_id = o.org_id
@@ -142,15 +170,23 @@ router.post('/leftovers/reject', authMiddleWare, async (req, res) => {
     const { food_id, org_id, made_on } = req.body;
 
     try {
-        const query = `
-            UPDATE leftover_available
-            SET status = 'REJECTED'
-            WHERE res_id = ? AND food_id = ? AND org_id = ? AND made_on = ? AND status = 'PENDING'
-        `;
-        const [result] = await db.execute(query, [resId, food_id, org_id, made_on]);
+        const checkPending = `SELECT leftover_id, quantity FROM leftover_available WHERE res_id = ? AND food_id = ? AND org_id = ? AND made_on = ? AND status = 'PENDING' LIMIT 1`;
+        const [pending] = await db.execute(checkPending, [resId, food_id, org_id, made_on]);
 
-        if (result.affectedRows === 0) {
+        if (pending.length === 0) {
             return res.status(404).json({ message: 'Claim not found or not in PENDING state' });
+        }
+
+        const pendingClaim = pending[0];
+
+        const checkAvail = `SELECT leftover_id FROM leftover_available WHERE res_id = ? AND food_id = ? AND made_on = ? AND status = 'AVAILABLE' LIMIT 1`;
+        const [available] = await db.execute(checkAvail, [resId, food_id, made_on]);
+
+        if (available.length > 0) {
+            await db.execute('UPDATE leftover_available SET quantity = quantity + ? WHERE leftover_id = ?', [pendingClaim.quantity, available[0].leftover_id]);
+            await db.execute('DELETE FROM leftover_available WHERE leftover_id = ?', [pendingClaim.leftover_id]);
+        } else {
+            await db.execute('UPDATE leftover_available SET status = "AVAILABLE", org_id = NULL WHERE leftover_id = ?', [pendingClaim.leftover_id]);
         }
 
         const [foodDetails] = await db.execute('SELECT name FROM Restaurant_Menu WHERE food_id = ?', [food_id]);
@@ -386,12 +422,15 @@ router.get('/mostordereditem', authMiddleWare, async (req, res) => {
     const howMany = parseInt(req.query.howMany) || 3
     try {
         const selectMostPopular = `
-        SELECT food_id,name,food_image_path
-        FROM Restaurant_Menu
-        WHERE res_id=? 
-        ORDER BY quantity_sold DESC
-        LIMIT ?
-        `
+            SELECT rm.food_id, rm.name, rm.food_image_path, SUM(oi.quantity) as total_sold
+            FROM Restaurant_Menu rm
+            JOIN order_item oi ON rm.food_id = oi.food_id
+            JOIN orders o ON oi.order_id = o.order_id
+            WHERE rm.res_id = ? AND o.status = 'DELIVERED'
+            GROUP BY rm.food_id, rm.name, rm.food_image_path
+            ORDER BY total_sold DESC
+            LIMIT ?
+        `;
         const [result] = await db.execute(selectMostPopular, [resId, howMany]);
 
         return res.status(200).json({ topItems: result });
@@ -693,22 +732,17 @@ router.put('/orders/:id/status', authMiddleWare, async (req, res) => {
 
 router.post("/uploadimage", upload.single("image"), async (req, res) => {
     try {
-        const result = await cloudinary.uploader.upload_stream(
-            { folder: "restaurants" },
-            (err, result) => {
-                if (err) {
-                    return res.status(500).json({ err })
-                }
-                res.json({ imageUrl: result.secure_url })
-            }
-        )
-
-        result.end(req.file.buffer)
+        if (!req.file) {
+            return res.status(400).json({ message: "No image provided" });
+        }
+        const imageUrl = await uploadToCloudinary(req.file.buffer, "purrito/menu-items");
+        res.json({ imageUrl });
     }
     catch (err) {
         return res.status(500).json({ message: err.message })
     }
 })
+
 
 
 //coupon stuff

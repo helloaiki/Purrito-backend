@@ -232,6 +232,7 @@ CREATE TABLE rating_driver
 USE purrito;
 CREATE TABLE leftover_available
 (
+    leftover_id INT AUTO_INCREMENT PRIMARY KEY,
     res_id INT,
     food_id INT,
     made_on DATE,
@@ -239,7 +240,8 @@ CREATE TABLE leftover_available
     taken_on DATE NULL,
     org_id INT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY(res_id, food_id, made_on),
+    status ENUM('AVAILABLE', 'PENDING', 'ACCEPTED', 'REJECTED', 'COLLECTED') DEFAULT 'AVAILABLE',
+    pickup_time DATETIME NULL,
     FOREIGN KEY(res_id) REFERENCES restaurant(restaurant_id) ON DELETE CASCADE,
     FOREIGN KEY(food_id) REFERENCES Restaurant_Menu(food_id) ON DELETE CASCADE,
     FOREIGN KEY(org_id) REFERENCES organization(org_id) ON DELETE CASCADE
@@ -666,3 +668,17 @@ CREATE TABLE password_reset_tokens(
 );
 
 ALTER TABLE user ADD COLUMN verification_token_expires_at DATETIME NULL;
+
+--3. Event for marking accepted leftovers as collected if not picked up every 15 minutes
+DELIMITER $$
+
+CREATE EVENT mark_collected_leftovers
+ON SCHEDULE EVERY 15 MINUTE 
+DO
+    UPDATE leftover_available 
+    SET status = 'COLLECTED', taken_on = CURDATE() 
+    WHERE status = 'ACCEPTED' AND pickup_time <= NOW()$$
+
+DELIMITER ;
+
+ALTER TABLE driver ADD COLUMN verification_doc_url VARCHAR(512) NULL;

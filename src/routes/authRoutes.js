@@ -4,6 +4,9 @@ import jwt from 'jsonwebtoken'
 import db from '../db.js'
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
+import { upload, uploadToCloudinary } from '../utils/cloudinary.js';
+
+
 
 const router = express.Router()
 
@@ -33,24 +36,29 @@ const geocodeAddress = async (...parts) => {
     return { lat: null, lng: null };
 };
 
-//signin a new user//via the auth/driver/signup//POST
-router.post('/driver/signup', async (req, res) => {
-    const { name, email, password, contact, verification, joinDate } = req.body
+//Driver signup
+router.post('/driver/signup', upload.single('verificationDoc'), async (req, res) => {
+    const { name, email, password, contact, verification } = req.body
     const hashedPassword = bcrypt.hashSync(password, 8)
-    console.log(password, hashedPassword)
-
+    
     try {
-        const insertDriver = `INSERT INTO driver(user_name,email_address,password,verification_method,phone_number,join_date) VALUES(?,?,?,?,?,CURDATE())`
-        const [result] = await db.execute(insertDriver, [name, email, hashedPassword, verification, contact])
-        console.log(result.insertId)
+        let verificationDocUrl = null;
+        if (req.file) {
+            verificationDocUrl = await uploadToCloudinary(req.file.buffer, "purrito/drivers");
+        }
+
+        const insertDriver = `INSERT INTO driver(user_name,email_address,password,verification_method,phone_number,join_date, verification_doc_url) VALUES(?,?,?,?,?,CURDATE(),?)`
+        const [result] = await db.execute(insertDriver, [name, email, hashedPassword, verification, contact, verificationDocUrl])
         const token = jwt.sign({ driverId: result.insertId }, process.env.MYSECRETKEY, { expiresIn: '24h' })
         return res.status(201).json({ token: token, driverId: result.insertId })
     }
+
     catch (err) {
         console.log(err.message)
         return res.status(503).json({ message: err.message })
     }
 })
+
 
 
 
@@ -79,7 +87,7 @@ router.post('/driver/login', async (req, res) => {
 })
 
 
-router.post('/restaurant/signup', async (req, res) => {
+router.post('/restaurant/signup', upload.single('res_image'), async (req, res) => {
 
     const {
         name,
@@ -90,16 +98,19 @@ router.post('/restaurant/signup', async (req, res) => {
         postalcode,
         buildingname,
         foodprogram,
-        resimagepath,
         description,
         restauranttype
     } = req.body
 
     const hashedPassword = bcrypt.hashSync(password, 8)
-
     const isSignedUpForFoodDonationProgram = foodprogram === "YES" ? 1 : 0
-
+    
     try {
+        let resimagepath = null;
+        if (req.file) {
+            resimagepath = await uploadToCloudinary(req.file.buffer, "purrito/restaurants");
+        }
+
 
         const { lat, lng } = await geocodeAddress(
             buildingname,
@@ -125,7 +136,7 @@ router.post('/restaurant/signup', async (req, res) => {
             postalcode ?? null,
             buildingname ?? null,
             isSignedUpForFoodDonationProgram,
-            resimagepath ?? null,
+            resimagepath,
             description ?? null,
             restauranttype ?? null,
             lat,
@@ -149,6 +160,7 @@ router.post('/restaurant/signup', async (req, res) => {
         return res.status(503).json({ message: err.message })
     }
 })
+
 
 
 
@@ -261,7 +273,6 @@ router.post('/user/login', async (req, res) => {
 });
 
 //Organization signup
-import { upload } from '../utils/cloudinary.js';
 
 router.post('/organization/signup', upload.fields([
     { name: 'ngo_certificate', maxCount: 1 },
@@ -269,11 +280,19 @@ router.post('/organization/signup', upload.fields([
 ]), async (req, res) => {
     const { name, email, password, street, city, postalcode, buildingname, moto, contact_number } = req.body
 
-    const ngo_certificate_url = req.files?.['ngo_certificate'] ? req.files['ngo_certificate'][0].path : null;
-    const rep_nid_url = req.files?.['rep_nid'] ? req.files['rep_nid'][0].path : null;
-
-    const hashedPassword = bcrypt.hashSync(password, 8)
     try {
+        let ngo_certificate_url = null;
+        let rep_nid_url = null;
+
+        if (req.files?.['ngo_certificate']) {
+            ngo_certificate_url = await uploadToCloudinary(req.files['ngo_certificate'][0].buffer, "purrito/organizations");
+        }
+        if (req.files?.['rep_nid']) {
+            rep_nid_url = await uploadToCloudinary(req.files['rep_nid'][0].buffer, "purrito/organizations");
+        }
+
+        const hashedPassword = bcrypt.hashSync(password, 8)
+
         // Auto-geocode the organization address
         const { lat, lng } = await geocodeAddress(buildingname, street, city, 'Bangladesh');
         console.log(`Geocoded org address → lat:${lat}, lng:${lng}`);

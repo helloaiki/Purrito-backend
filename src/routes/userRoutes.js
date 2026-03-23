@@ -693,10 +693,11 @@ router.get('/saved-addresses', authMiddleWare, async (req, res) => {
     const userId = req.userId;
     try {
         const [rows] = await db.execute(`
-            SELECT DISTINCT delivery_address, delivery_lat, delivery_lng
+            SELECT delivery_address, delivery_lat, delivery_lng
             FROM orders
             WHERE user_id = ? AND delivery_address IS NOT NULL
-            ORDER BY created_at DESC
+            GROUP BY delivery_address, delivery_lat, delivery_lng
+            ORDER BY MAX(created_at) DESC
             LIMIT 10
             `, [userId]);
         res.status(200).json(rows);

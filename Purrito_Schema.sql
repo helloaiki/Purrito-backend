@@ -50,6 +50,7 @@ CREATE TABLE driver
     lat DECIMAL(10,8) NULL,
     lng DECIMAL(11,8) NULL,
     last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    verification_doc_url VARCHAR(512) NULL,
     PRIMARY KEY(driver_id)
 );
 
@@ -211,6 +212,7 @@ CREATE TABLE rating_driver
 -- Table for restaurants to host their leftovers
 CREATE TABLE leftover_available
 (
+    leftover_id INT AUTO_INCREMENT PRIMARY KEY,
     res_id INT,
     food_id INT,
     made_on DATE,
@@ -219,8 +221,7 @@ CREATE TABLE leftover_available
     org_id INT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     status ENUM('AVAILABLE', 'PENDING', 'ACCEPTED', 'REJECTED', 'COLLECTED') DEFAULT 'AVAILABLE',
-    pickup_time DATETIME NULL
-    PRIMARY KEY(res_id, food_id, made_on),
+    pickup_time DATETIME NULL,
     FOREIGN KEY(res_id) REFERENCES restaurant(restaurant_id) ON DELETE CASCADE,
     FOREIGN KEY(food_id) REFERENCES Restaurant_Menu(food_id) ON DELETE CASCADE,
     FOREIGN KEY(org_id) REFERENCES organization(org_id) ON DELETE CASCADE
@@ -451,6 +452,18 @@ BEGIN
     SET is_active=FALSE
     WHERE expires_on<=NOW() AND is_active=TRUE;
 END $$
+
+DELIMITER ;
+
+--3. Event for marking accepted leftovers as collected if not picked up every 15 minutes
+DELIMITER $$
+
+CREATE EVENT mark_collected_leftovers
+ON SCHEDULE EVERY 15 MINUTE 
+DO
+    UPDATE leftover_available 
+    SET status = 'COLLECTED', taken_on = CURDATE() 
+    WHERE status = 'ACCEPTED' AND pickup_time <= NOW()$$
 
 DELIMITER ;
 

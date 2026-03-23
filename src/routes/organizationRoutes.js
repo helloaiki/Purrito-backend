@@ -1,6 +1,7 @@
 import express from 'express'
 import db from '../db.js'
 import authMiddleWare from '../middleware/authMiddleware.js'
+import { notifyRole } from '../server.js'
 
 const router = express.Router()
 
@@ -128,7 +129,7 @@ router.get('/leftovers', async (req, res) => {
             FROM leftover_available la
             JOIN Restaurant_Menu rm ON la.food_id = rm.food_id
             JOIN restaurant r ON la.res_id = r.restaurant_id
-            WHERE la.org_id IS NULL AND la.status = 'AVAILABLE'
+            WHERE la.org_id IS NULL AND la.status = 'AVAILABLE' AND la.made_on >= DATE_SUB(CURDATE(), INTERVAL 1 DAY)
             ORDER BY la.made_on ASC
         `
         const [leftovers] = await db.execute(getLeftovers)
@@ -139,10 +140,33 @@ router.get('/leftovers', async (req, res) => {
     }
 });
 
+// GET /api/organization/leftovers/pending-all
+router.get('/leftovers/pending-all', async (req, res) => {
+    try {
+        const query = `
+            SELECT la.leftover_id, la.food_id, la.res_id, la.quantity, la.made_on, 
+                   rm.name as food_name, rm.food_image_path, 
+                   r.res_name, o.org_name
+            FROM leftover_available la
+            JOIN Restaurant_Menu rm ON la.food_id = rm.food_id
+            JOIN restaurant r ON la.res_id = r.restaurant_id
+            JOIN organization o ON la.org_id = o.org_id
+            WHERE la.status = 'PENDING'
+            ORDER BY la.created_at DESC
+        `;
+        const [pending] = await db.execute(query);
+        res.status(200).json(pending);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Error fetching pending claims' });
+    }
+});
+
 // POST /api/organization/claim
 router.post('/claim', authMiddleWare, async (req, res) => {
-    const { food_id, res_id, made_on } = req.body;
+    const { food_id, res_id, made_on, quantity } = req.body;
     const orgId = req.userId;
+    const claimQty = quantity || 1;
 
     if (!orgId) {
         return res.status(403).json({ message: 'Only organizations can claim leftovers' });
@@ -155,17 +179,39 @@ router.post('/claim', authMiddleWare, async (req, res) => {
     const cleanDate = new Date(made_on).toLocaleDateString('en-CA');
 
     try {
-        const claimQuery = `
-            UPDATE leftover_available
-            SET org_id = ?, status = 'PENDING'
-            WHERE food_id= ? AND res_id =? AND made_on =? AND org_id IS NULL AND status = 'AVAILABLE'
-        `;
+        const checkQuery = `SELECT leftover_id, quantity FROM leftover_available WHERE food_id = ? AND res_id = ? AND made_on = ? AND org_id IS NULL AND status = 'AVAILABLE' AND quantity >= ? LIMIT 1`;
+        const [available] = await db.execute(checkQuery, [food_id, res_id, cleanDate, claimQty]);
 
-        const [result] = await db.execute(claimQuery, [orgId, food_id, res_id, cleanDate]);
-
-        if (result.affectedRows == 0) {
-            return res.status(404).json({ message: 'Leftover not available or already claimed' });
+        if (available.length === 0) {
+            return res.status(404).json({ message: 'Leftover not available or insufficient quantity requested.' });
         }
+
+        const availRow = available[0];
+        const remainingQty = availRow.quantity - claimQty;
+
+        if (remainingQty <= 0) {
+            await db.execute('DELETE FROM leftover_available WHERE leftover_id = ?', [availRow.leftover_id]);
+        } else {
+            await db.execute('UPDATE leftover_available SET quantity = ? WHERE leftover_id = ?', [remainingQty, availRow.leftover_id]);
+        }
+
+        const insertQuery = `INSERT INTO leftover_available (res_id, food_id, made_on, quantity, org_id, status) VALUES (?, ?, ?, ?, ?, 'PENDING')`;
+        await db.execute(insertQuery, [res_id, food_id, cleanDate, claimQty, orgId]);
+
+        const [foodResult] = await db.execute('SELECT name FROM Restaurant_Menu WHERE food_id = ?', [food_id]);
+        const foodName = foodResult[0] ? foodResult[0].name : `Food #${food_id}`;
+
+        await db.execute(
+            'INSERT INTO notifications (restaurant_id, role, title, message, type) VALUES (?,?,?,?,?)',
+            [res_id, 'restaurant', 'New Claim Request', `An organization has requested to claim ${foodName}.`, 'CLAIM_REQUEST']
+        );
+
+        notifyRole('restaurant', res_id, {
+            title: 'New Claim Request',
+            message: `An organization has requested to claim ${foodName}.`,
+            type: 'CLAIM_REQUEST',
+            food_id: food_id
+        });
 
         res.status(200).json({ message: 'Claim requested successfully. Waiting for restaurant approval.' });
     } catch (err) {
@@ -327,6 +373,28 @@ router.get('/distribution/records', authMiddleWare, async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Error fetching distribution records' });
+    }
+});
+
+// DELETE /api/organization/distribution/record/:id
+router.delete('/distribution/record/:id', authMiddleWare, async (req, res) => {
+    const orgId = req.userId;
+    const recordId = req.params.id;
+
+    try {
+        const [result] = await db.execute(`
+            DELETE FROM distributed_food 
+            WHERE dist_id = ? AND org_id = ?
+        `, [recordId, orgId]);
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Record not found or unauthorized' });
+        }
+
+        res.status(200).json({ message: 'Record deleted successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Error deleting record' });
     }
 });
 
