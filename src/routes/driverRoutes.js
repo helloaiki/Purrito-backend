@@ -364,10 +364,10 @@ router.put('/updateOrderStatus', authMiddleWare, async (req, res) => {
         if ((currentStatus == 'PREPARING' && status == 'PICKED_UP') || (currentStatus == 'PICKED_UP' && status == 'DELIVERED')) {
             const updateOrderStatus = `
             UPDATE orders
-            SET status=?
+            SET status=?, payment_status = CASE WHEN ? = 'DELIVERED' THEN 'PAID' ELSE payment_status END
             WHERE order_id=? AND driver_id=? AND status=?
             `
-            const [result] = await db.execute(updateOrderStatus, [status, orderId, driverId, currentStatus])
+            const [result] = await db.execute(updateOrderStatus, [status, status, orderId, driverId, currentStatus])
             if (result.affectedRows == 0) {
                 return res.status(409).json({ message: 'Could not update order status' })
             }

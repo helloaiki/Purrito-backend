@@ -139,6 +139,9 @@ CREATE TABLE orders
     rejection_reason  VARCHAR(255) NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    payment_status ENUM('NOT_PAID', 'PAID') DEFAULT 'NOT_PAID',
+    coupon_code VARCHAR(20) NULL,
+    discount DECIMAL(6,2) DEFAULT 0.00,
     PRIMARY KEY(order_id),
     FOREIGN KEY(user_id) REFERENCES user(user_id) ON DELETE SET NULL,
     FOREIGN KEY(restaurant_id) REFERENCES restaurant(restaurant_id) ON DELETE SET NULL,
@@ -520,6 +523,9 @@ CREATE PROCEDURE placeOrder(
     IN p_delivery_lng DECIMAL(11,8),
     IN p_payment_method VARCHAR(20),
     IN p_items_json JSON,
+    IN p_payment_status ENUM('NOT_PAID', 'PAID'),
+    IN p_coupon_code VARCHAR(20),
+    IN p_discount DECIMAL(6,2),
     OUT p_order_id INT
 )
 BEGIN
@@ -537,8 +543,8 @@ BEGIN
     START TRANSACTION;
 
     -- Insert ORDER
-    INSERT INTO orders(user_id, restaurant_id, price, delivery_fee, delivery_address, delivery_lat, delivery_lng, payment_method, status)
-    VALUES (p_user_id, p_restaurant_id, p_price, p_delivery_fee, p_delivery_address, p_delivery_lat, p_delivery_lng, p_payment_method, 'WAITING');
+    INSERT INTO orders(user_id, restaurant_id, price, delivery_fee, delivery_address, delivery_lat, delivery_lng, payment_method, status, payment_status, coupon_code, discount)
+    VALUES (p_user_id, p_restaurant_id, p_price, p_delivery_fee, p_delivery_address, p_delivery_lat, p_delivery_lng, p_payment_method, 'WAITING', p_payment_status, p_coupon_code, p_discount);
 
     SET p_order_id = LAST_INSERT_ID();
 

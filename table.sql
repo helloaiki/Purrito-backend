@@ -682,3 +682,70 @@ DO
 DELIMITER ;
 
 ALTER TABLE driver ADD COLUMN verification_doc_url VARCHAR(512) NULL;
+
+ALTER TABLE orders ADD COLUMN payment_status ENUM('NOT_PAID', 'PAID') DEFAULT 'NOT_PAID';
+
+DROP PROCEDURE IF EXISTS placeOrder;
+
+DELIMITER $$ 
+
+CREATE PROCEDURE placeOrder(
+    IN p_user_id INT,
+    IN p_restaurant_id INT,
+    IN p_price DECIMAL(6,2),
+    IN p_delivery_fee DECIMAL(6,2),
+    IN p_delivery_address VARCHAR(255),
+    IN p_delivery_lat DECIMAL(10,8),
+    IN p_delivery_lng DECIMAL(11,8),
+    IN p_payment_method VARCHAR(20),
+    IN p_items_json JSON,
+    IN p_payment_status ENUM('NOT_PAID', 'PAID'),
+    IN p_coupon_code VARCHAR(20),
+    IN p_discount DECIMAL(6,2),
+    OUT p_order_id INT
+)
+BEGIN
+    DECLARE v_idx INT DEFAULT 0;
+    DECLARE v_count INT;
+    DECLARE v_food_id INT;
+    DECLARE v_quantity INT;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN 
+        ROLLBACK;
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'PlaceOrder failed - transaction rolled back';
+    END;
+
+    START TRANSACTION;
+
+    -- Insert ORDER
+    INSERT INTO orders(user_id, restaurant_id, price, delivery_fee, delivery_address, delivery_lat, delivery_lng, payment_method, status, payment_status, coupon_code, discount)
+    VALUES (p_user_id, p_restaurant_id, p_price, p_delivery_fee, p_delivery_address, p_delivery_lat, p_delivery_lng, p_payment_method, 'WAITING', p_payment_status, p_coupon_code, p_discount);
+
+    SET p_order_id = LAST_INSERT_ID();
+
+    -- Insert ORDER_ITEMS
+    SET v_count = JSON_LENGTH(p_items_json);
+    WHILE v_idx < v_count DO
+        SET v_food_id = JSON_UNQUOTE(JSON_EXTRACT(p_items_json, CONCAT('$[', v_idx, '].food_id')));
+        SET v_quantity = JSON_UNQUOTE(JSON_EXTRACT(p_items_json, CONCAT('$[', v_idx, '].quantity')));
+        INSERT INTO order_item(order_id, food_id, quantity) VALUES (p_order_id, v_food_id, v_quantity);
+
+        UPDATE Restaurant_Menu
+        SET quantity_sold = quantity_sold + v_quantity
+        WHERE food_id = v_food_id;
+
+        SET v_idx = v_idx + 1;
+    END WHILE;
+
+    -- Create restaurant income record
+    INSERT INTO restaurant_income (order_id, restaurant_id, payment, payment_date, has_delivered)
+    VALUES (p_order_id, p_restaurant_id, p_price - p_delivery_fee, CURDATE(), FALSE);
+
+    COMMIT;
+END$$
+
+DELIMITER ;
+
+ALTER TABLE orders ADD COLUMN coupon_code VARCHAR(20) NULL;
+ALTER TABLE orders ADD COLUMN discount DECIMAL(6,2) DEFAULT 0.00;

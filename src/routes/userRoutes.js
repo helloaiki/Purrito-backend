@@ -182,9 +182,10 @@ router.get('/menu/:food_id', async (req, res) => {
         const [rows] = await db.execute(`
                 SELECT rm.food_id, rm.res_id, rm.name, rm.course_name,
                    rm.price, rm.food_image_path, rm.is_available,
-                   r.res_name, r.restaurant_type, r.building_name, r.street, r.city,
+                   r.res_name, r.restaurant_type, r.building_name, r.street, r.city, r.email_address,
                    r.description AS res_description,
-                   (SELECT IFNULL(ROUND(AVG(rating), 1), 4.5) FROM rating_restaurant WHERE res_id = r.restaurant_id) AS rating
+                   (SELECT IFNULL(ROUND(AVG(rating), 1), 4.5) FROM rating_restaurant WHERE res_id = r.restaurant_id) AS rating,
+                   (SELECT phone_number FROM contact_restaurant WHERE res_id = r.restaurant_id LIMIT 1) AS phone_number
                 FROM Restaurant_Menu rm
                 JOIN restaurant r ON rm.res_id = r.restaurant_id
                 WHERE rm.food_id=?
@@ -268,11 +269,12 @@ router.get('/restaurants/:res_id', async (req, res) => {
     const { res_id } = req.params;
     try {
         const [rows] = await db.execute(`
-                SELECT restaurant_id, res_name, restaurant_type,
-                    city, street, res_image_path,
-                    (SELECT IFNULL(ROUND(AVG(rating), 1), 4.5) FROM rating_restaurant WHERE res_id = restaurant_id) AS rating
-                FROM restaurant
-                WHERE restaurant_id = ?
+                SELECT r.restaurant_id, r.res_name, r.restaurant_type,
+                    r.city, r.street, r.building_name, r.res_image_path, r.email_address, r.description,
+                    (SELECT IFNULL(ROUND(AVG(rating), 1), 4.5) FROM rating_restaurant WHERE res_id = r.restaurant_id) AS rating,
+                    (SELECT phone_number FROM contact_restaurant WHERE res_id = r.restaurant_id LIMIT 1) AS phone_number
+                FROM restaurant r
+                WHERE r.restaurant_id = ?
         `, [res_id]);
         if (rows.length === 0) return res.status(404).json({ message: 'Restaurant not found' });
         res.status(200).json(rows[0]);
@@ -307,7 +309,7 @@ router.get('/orders', authMiddleWare, async (req, res) => {
 // POST /api/user/orders  — place a new order
 router.post('/orders', authMiddleWare, async (req, res) => {
     const userId = req.userId;
-    const { items, delivery_address, delivery_lat, delivery_lng, payment_method, coupon_code } = req.body;
+    const { items, delivery_address, delivery_lat, delivery_lng, payment_method, coupon_code, payment_status } = req.body;
 
     if (!items || items.length === 0) return res.status(400).json({ message: 'No items in the order' });
 
@@ -380,7 +382,7 @@ router.post('/orders', authMiddleWare, async (req, res) => {
 
         // Execute PlaceOrder stored procedure
         await conn.execute(
-            `CALL placeOrder(?, ?, ?, ?, ?, ?, ?, ?, ?, @out_order_id)`,
+            `CALL placeOrder(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, @out_order_id)`,
             [
                 userId,
                 restaurant_id,
@@ -390,7 +392,10 @@ router.post('/orders', authMiddleWare, async (req, res) => {
                 delivery_lat,
                 delivery_lng,
                 payment_method,
-                JSON.stringify(items)
+                JSON.stringify(items),
+                payment_status || (payment_method === 'bkash' ? 'PAID' : 'NOT_PAID'),
+                coupon_code || null,
+                website_discount || 0
             ]
         );
 
@@ -470,7 +475,7 @@ router.get('/orders/:order_id', authMiddleWare, async (req, res) => {
     try {
         const getOrders = `
             SELECT o.order_id, o.price, o.status, o.delivery_address, o.delivery_lat, o.delivery_lng, o.payment_method,
-               o.rejection_reason, o.created_at, o.driver_id,
+               o.rejection_reason, o.created_at, o.driver_id, o.coupon_code, o.discount,
                r.res_name AS restaurant_name, r.lat AS res_lat, r.lng AS res_lng,
                d.user_name AS driver_name, d.lat AS driver_lat, d.lng AS driver_lng, d.phone_number AS driver_phone
             FROM orders o
@@ -704,6 +709,63 @@ router.get('/saved-addresses', authMiddleWare, async (req, res) => {
     } catch (err) {
         console.error('Error fetching saved addresses:', err);
         res.status(500).json({ message: err.message });
+    }
+});
+
+//PAYMENT CREDENTIALS
+
+// GET /api/user/payment-credentials
+router.get('/payment-credentials', authMiddleWare, async (req, res) => {
+    const userId = req.userId;
+    try {
+        const [rows] = await db.execute(
+            'SELECT payment_method, payment_method_information FROM payment_credentials WHERE user_id = ?',
+            [userId]
+        );
+        res.status(200).json(rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Error fetching payment credentials' });
+    }
+});
+
+// POST /api/user/payment-credentials
+router.post('/payment-credentials', authMiddleWare, async (req, res) => {
+    const userId = req.userId;
+    const { payment_method, payment_method_information } = req.body;
+
+    if (!payment_method || !payment_method_information) {
+        return res.status(400).json({ message: 'Missing payment method or information' });
+    }
+
+    try {
+        // Upsert logic: Update if exists, else insert
+        await db.execute(`
+            INSERT INTO payment_credentials (user_id, payment_method, payment_method_information)
+            VALUES (?, ?, ?)
+            ON DUPLICATE KEY UPDATE payment_method_information = VALUES(payment_method_information)
+        `, [userId, payment_method, payment_method_information]);
+
+        res.status(200).json({ message: 'Payment credential saved successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Error saving payment credential' });
+    }
+});
+
+// DELETE /api/user/payment-credentials/:method
+router.delete('/payment-credentials/:method', authMiddleWare, async (req, res) => {
+    const userId = req.userId;
+    const { method } = req.params;
+    try {
+        await db.execute(
+            'DELETE FROM payment_credentials WHERE user_id = ? AND payment_method = ?',
+            [userId, method]
+        );
+        res.status(200).json({ message: 'Payment credential deleted' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Error deleting payment credential' });
     }
 });
 
