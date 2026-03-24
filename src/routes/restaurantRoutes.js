@@ -422,11 +422,17 @@ router.get('/mostordereditem', authMiddleWare, async (req, res) => {
     const howMany = parseInt(req.query.howMany) || 3
     try {
         const selectMostPopular = `
-            SELECT rm.food_id, rm.name, rm.food_image_path, SUM(oi.quantity) as total_sold
+            SELECT rm.food_id, rm.name, rm.food_image_path, 
+            COALESCE(SUM(
+        CASE 
+            WHEN o.status = 'DELIVERED' THEN oi.quantity 
+            ELSE 0 
+        END
+        ), 0) as total_sold
             FROM Restaurant_Menu rm
-            JOIN order_item oi ON rm.food_id = oi.food_id
-            JOIN orders o ON oi.order_id = o.order_id
-            WHERE rm.res_id = ? AND o.status = 'DELIVERED'
+            LEFT JOIN order_item oi ON rm.food_id = oi.food_id
+            LEFT JOIN orders o ON oi.order_id = o.order_id
+            WHERE rm.res_id = ? 
             GROUP BY rm.food_id, rm.name, rm.food_image_path
             ORDER BY total_sold DESC
             LIMIT ?
