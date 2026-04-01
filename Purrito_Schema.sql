@@ -299,6 +299,20 @@ CREATE TABLE notifications
     FOREIGN KEY(org_id) REFERENCES organization(org_id) ON DELETE CASCADE
 );
 
+
+--Order related messaging
+USE purrito;
+CREATE TABLE messages
+(
+    message_id INT AUTO_INCREMENT PRIMARY KEY,
+    order_id INT NOT NULL,
+    sender_id INT NOT NULL,
+    sender_role ENUM('Driver','User') NOT NULL,
+    contents VARCHAR(300) NOT NULL,
+    timestamp_message TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(order_id) REFERENCES orders(order_id) ON DELETE CASCADE
+)
+
 -- Driver assignment logs table
 CREATE TABLE driver_assignment_logs
 (
