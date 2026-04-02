@@ -7,11 +7,25 @@ import driverRoutes from './routes/driverRoutes.js'
 import userRoutes from './routes/userRoutes.js'
 import organizationRoutes from './routes/organizationRoutes.js'
 import notificationRoutes from './routes/notificationRoutes.js'
+import messageRoutes from './routes/messageRoutes.js'
 import WebSocket, { WebSocketServer } from 'ws'
 import { createClient } from 'redis'
 import cors from 'cors';
+import { Server as IOServer } from 'socket.io'
+import http from "http"
 
 const app = express()
+
+//message part
+
+const server = http.createServer(app)
+
+const io = new IOServer(server, {
+    cors: { origin: '*' }
+})
+
+import initChatSocket from './socket/chatSocket.js'
+initChatSocket(io)
 
 // Global in-memory storage for WebSocket clients
 export const orderClients = {} // { orderId: Set of ws }
@@ -45,7 +59,7 @@ export const redisClient = createClient(
 redisClient.on('error', (err) => {
     console.log('Redis Client Error', err)
 })
-await redisClient.connect()
+redisClient.connect().catch(err => console.error('Failed to connect to Redis on startup:', err.message));
 
 const wss = new WebSocketServer({ port: 8008 })
 
@@ -119,9 +133,10 @@ app.use('/api/user', userRoutes)
 app.use('/api/organization', organizationRoutes)
 app.use('/driver', driverRoutes)
 app.use('/api/notifications', notificationRoutes)
+app.use('/api/messages', messageRoutes)
 
 app.use(express.static(path.join(__dirname, '../public')))
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log(`server has started on port: ${PORT}`);
 })

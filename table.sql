@@ -157,6 +157,7 @@ CREATE TABLE orders
 
 USE purrito;
 SELECT *
+FROM restaurant;
 FROM Restaurant_Menu;
 
 -- Ordered items table
@@ -232,7 +233,6 @@ CREATE TABLE rating_driver
 USE purrito;
 CREATE TABLE leftover_available
 (
-    leftover_id INT AUTO_INCREMENT PRIMARY KEY,
     res_id INT,
     food_id INT,
     made_on DATE,
@@ -240,8 +240,7 @@ CREATE TABLE leftover_available
     taken_on DATE NULL,
     org_id INT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    status ENUM('AVAILABLE', 'PENDING', 'ACCEPTED', 'REJECTED', 'COLLECTED') DEFAULT 'AVAILABLE',
-    pickup_time DATETIME NULL,
+    PRIMARY KEY(res_id, food_id, made_on),
     FOREIGN KEY(res_id) REFERENCES restaurant(restaurant_id) ON DELETE CASCADE,
     FOREIGN KEY(food_id) REFERENCES Restaurant_Menu(food_id) ON DELETE CASCADE,
     FOREIGN KEY(org_id) REFERENCES organization(org_id) ON DELETE CASCADE
@@ -331,6 +330,20 @@ CREATE TABLE driver_assignment_logs
     FOREIGN KEY(order_id) REFERENCES orders(order_id)  ON DELETE CASCADE,
     FOREIGN KEY(driver_id) REFERENCES driver(driver_id) ON DELETE CASCADE
 );
+
+
+--Order related messaging
+USE purrito;
+CREATE TABLE messages
+(
+    message_id INT AUTO_INCREMENT PRIMARY KEY,
+    order_id INT NOT NULL,
+    sender_id INT NOT NULL,
+    sender_role ENUM('Driver','User') NOT NULL,
+    contents VARCHAR(300) NOT NULL,
+    timestamp_message TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(order_id) REFERENCES orders(order_id) ON DELETE CASCADE
+)
 
 -- Triggers
 -- 1. Confirm payment on delivery
@@ -422,7 +435,7 @@ BEGIN
     IF OLD.driver_id IS NULL AND NEW.driver_id IS NOT NULL THEN
         INSERT INTO notifications (driver_id, role, title, message, type) VALUES (NEW.driver_id, 'driver', 'Order Assigned', CONCAT('You have been assiged to order #',NEW.order_id,'.'), 'DRIVER_ASSIGNED');
     END IF;
-END$$;
+END$$
 
 DELIMITER ;
 
@@ -589,7 +602,7 @@ BEGIN
     -- Mark the assignment log as ACCEPTED
     UPDATE driver_assignment_logs
     SET status = 'ACCEPTED', responded_at = NOW()
-    WHERE order_id = p_order_id AND driver_id = p_driver_id;
+    WHERE order__id = p_order_id AND driver_id = p_driver_id;
 
     -- Record driver income
     INSERT INTO driver_income (order_id, driver_id, payment, payment_date, has_delivered)
@@ -624,8 +637,8 @@ BEGIN
         DATE_FORMAT(payment_date, '%a') AS day,
         ROUND(SUM(payment), 2) AS dailyRevenue
     FROM driver_income
-    WHERE driver_id = p_driver_id AND has_delivered =1 AND payment_date >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
-    GROUP BY DATE(payment_date), DATE_FORMAT(payment_date, '%a')
+    WHERE driver_id = p_driver_id AND has_delivered =1 AND payment_date >= DATE_SUB(CURDTAE(), INTERVAL 6 DAY)
+    GROUP BY DATE(payment_date)
     ORDER BY DATE(payment_date) ASC;
 END$$
 
@@ -654,98 +667,6 @@ CREATE TABLE distributed_food (
     FOREIGN KEY(org_id) REFERENCES organization(org_id) ON DELETE CASCADE
 );
 
-ALTER TABLE notifications ADD COLUMN order_id INT NULL;
-
-ALTER TABLE user ADD COLUMN is_varified BOOLEAN DEFAULT FALSE;
-ALTER TABLE user ADD COLUMN verification_token VARCHAR(64) NULL;
-
-CREATE TABLE password_reset_tokens(
-    token VARCHAR(64) PRIMARY KEY,
-    user_id INT NOT NULL,
-    expires_at TIMESTAMP NOT NULL,
-    used BOOLEAN DEFAULT FALSE,
-    FOREIGN KEY (user_id) REFERENCES user(user_id) ON DELETE CASCADE
-);
-
-ALTER TABLE user ADD COLUMN verification_token_expires_at DATETIME NULL;
-
---3. Event for marking accepted leftovers as collected if not picked up every 15 minutes
-DELIMITER $$
-
-CREATE EVENT mark_collected_leftovers
-ON SCHEDULE EVERY 15 MINUTE 
-DO
-    UPDATE leftover_available 
-    SET status = 'COLLECTED', taken_on = CURDATE() 
-    WHERE status = 'ACCEPTED' AND pickup_time <= NOW()$$
-
-DELIMITER ;
-
-ALTER TABLE driver ADD COLUMN verification_doc_url VARCHAR(512) NULL;
-
-ALTER TABLE orders ADD COLUMN payment_status ENUM('NOT_PAID', 'PAID') DEFAULT 'NOT_PAID';
-
-DROP PROCEDURE IF EXISTS placeOrder;
-
-DELIMITER $$ 
-
-CREATE PROCEDURE placeOrder(
-    IN p_user_id INT,
-    IN p_restaurant_id INT,
-    IN p_price DECIMAL(6,2),
-    IN p_delivery_fee DECIMAL(6,2),
-    IN p_delivery_address VARCHAR(255),
-    IN p_delivery_lat DECIMAL(10,8),
-    IN p_delivery_lng DECIMAL(11,8),
-    IN p_payment_method VARCHAR(20),
-    IN p_items_json JSON,
-    IN p_payment_status ENUM('NOT_PAID', 'PAID'),
-    IN p_coupon_code VARCHAR(20),
-    IN p_discount DECIMAL(6,2),
-    OUT p_order_id INT
-)
-BEGIN
-    DECLARE v_idx INT DEFAULT 0;
-    DECLARE v_count INT;
-    DECLARE v_food_id INT;
-    DECLARE v_quantity INT;
-
-    DECLARE EXIT HANDLER FOR SQLEXCEPTION
-    BEGIN 
-        ROLLBACK;
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'PlaceOrder failed - transaction rolled back';
-    END;
-
-    START TRANSACTION;
-
-    -- Insert ORDER
-    INSERT INTO orders(user_id, restaurant_id, price, delivery_fee, delivery_address, delivery_lat, delivery_lng, payment_method, status, payment_status, coupon_code, discount)
-    VALUES (p_user_id, p_restaurant_id, p_price, p_delivery_fee, p_delivery_address, p_delivery_lat, p_delivery_lng, p_payment_method, 'WAITING', p_payment_status, p_coupon_code, p_discount);
-
-    SET p_order_id = LAST_INSERT_ID();
-
-    -- Insert ORDER_ITEMS
-    SET v_count = JSON_LENGTH(p_items_json);
-    WHILE v_idx < v_count DO
-        SET v_food_id = JSON_UNQUOTE(JSON_EXTRACT(p_items_json, CONCAT('$[', v_idx, '].food_id')));
-        SET v_quantity = JSON_UNQUOTE(JSON_EXTRACT(p_items_json, CONCAT('$[', v_idx, '].quantity')));
-        INSERT INTO order_item(order_id, food_id, quantity) VALUES (p_order_id, v_food_id, v_quantity);
-
-        UPDATE Restaurant_Menu
-        SET quantity_sold = quantity_sold + v_quantity
-        WHERE food_id = v_food_id;
-
-        SET v_idx = v_idx + 1;
-    END WHILE;
-
-    -- Create restaurant income record
-    INSERT INTO restaurant_income (order_id, restaurant_id, payment, payment_date, has_delivered)
-    VALUES (p_order_id, p_restaurant_id, p_price - p_delivery_fee, CURDATE(), FALSE);
-
-    COMMIT;
-END$$
-
-DELIMITER ;
-
-ALTER TABLE orders ADD COLUMN coupon_code VARCHAR(20) NULL;
-ALTER TABLE orders ADD COLUMN discount DECIMAL(6,2) DEFAULT 0.00;
+USE purrito;
+SELECT *
+FROM Restaurant_Menu;

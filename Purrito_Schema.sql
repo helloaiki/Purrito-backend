@@ -295,7 +295,20 @@ CREATE TABLE notifications
     FOREIGN KEY(org_id) REFERENCES organization(org_id) ON DELETE CASCADE
 );
 
--- 21. Driver assignment logs table
+
+-- 21. Order related messaging
+CREATE TABLE messages
+(
+    message_id INT AUTO_INCREMENT PRIMARY KEY,
+    order_id INT NOT NULL,
+    sender_id INT NOT NULL,
+    sender_role ENUM('Driver','User') NOT NULL,
+    contents VARCHAR(300) NOT NULL,
+    timestamp_message TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(order_id) REFERENCES orders(order_id) ON DELETE CASCADE
+)
+
+-- 22. Driver assignment logs table
 CREATE TABLE driver_assignment_logs
 (
     log_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -308,7 +321,7 @@ CREATE TABLE driver_assignment_logs
     FOREIGN KEY(driver_id) REFERENCES driver(driver_id) ON DELETE CASCADE
 );
 
--- 22. Table for recording organization's distributed food
+-- 23. Table for recording organization's distributed food
 CREATE TABLE distributed_food (
     dist_id INT AUTO_INCREMENT PRIMARY KEY,
     org_id INT,
@@ -323,7 +336,7 @@ CREATE TABLE distributed_food (
     FOREIGN KEY(org_id) REFERENCES organization(org_id) ON DELETE CASCADE
 );
 
--- 23. Tokens needed for password reset
+-- 24. Tokens needed for password reset
 CREATE TABLE password_reset_tokens (
     token VARCHAR(64) PRIMARY KEY,
     user_id INT NOT NULL,

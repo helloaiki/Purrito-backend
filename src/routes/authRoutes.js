@@ -40,7 +40,7 @@ const geocodeAddress = async (...parts) => {
 router.post('/driver/signup', upload.single('verificationDoc'), async (req, res) => {
     const { name, email, password, contact, verification } = req.body
     const hashedPassword = bcrypt.hashSync(password, 8)
-    
+
     try {
         let verificationDocUrl = null;
         if (req.file) {
@@ -104,7 +104,7 @@ router.post('/restaurant/signup', upload.single('res_image'), async (req, res) =
 
     const hashedPassword = bcrypt.hashSync(password, 8)
     const isSignedUpForFoodDonationProgram = foodprogram === "YES" ? 1 : 0
-    
+
     try {
         let resimagepath = null;
         if (req.file) {
@@ -190,11 +190,13 @@ router.post('/restaurant/login', async (req, res) => {
 
 
 router.post('/user/signup', async (req, res) => {
-    const { name, email, password, contact } = req.body;
+    let { name, email, password, contact } = req.body;
     const hashedPassword = bcrypt.hashSync(password, 8);
     const verificationToken = crypto.randomBytes(32).toString('hex');
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+    console.log(`${email}`)
+    email = email.trim()
     if (!emailRegex.test(email)) {
         return res.status(400).json({ message: 'Invalid email address format' });
     }
@@ -231,6 +233,7 @@ router.post('/user/signup', async (req, res) => {
             res.status(201).json({ message: 'Account created! Please check your email to verify.' });
         } catch (emailErr) {
             await db.execute('DELETE FROM user WHERE user_id = ?', [result.insertId]);
+            console.log(emailErr)
             return res.status(400).json({ message: 'Could not send to this email. Please use a real email address.' });
         }
     } catch (err) {
