@@ -1,7 +1,8 @@
 import express from 'express'
 import db from '../db.js'
 import authMiddleWare from '../middleware/authMiddleware.js'
-import { redisClient, orderClients, notifyRole } from '../server.js'
+import { redisClient } from '../server.js'
+import { orderClients, notifyRole } from '../services/notificationService.js'
 import WebSocket, { WebSocketServer } from 'ws'
 import { findNextDriver } from '../utils/fulfillment.js'
 

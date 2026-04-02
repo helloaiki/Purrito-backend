@@ -33,6 +33,10 @@ CREATE TABLE restaurant
     res_image_path VARCHAR(512),
     description VARCHAR(100),
     restaurant_type VARCHAR(50),
+    trade_license_url VARCHAR(512) NULL,
+    tin_certificate_url VARCHAR(512) NULL,
+    is_approved ENUM('PENDING','APPROVED','REJECTED') DEFAULT 'PENDING',
+    rejection_reason VARCHAR(255) NULL,
     PRIMARY KEY(restaurant_id)
 );
 
@@ -50,6 +54,8 @@ CREATE TABLE driver
     lng DECIMAL(11,8) NULL,
     last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     verification_doc_url VARCHAR(512) NULL,
+    is_approved ENUM('PENDING','APPROVED','REJECTED') DEFAULT 'PENDING',
+    rejection_reason VARCHAR(255) NULL,
     PRIMARY KEY(driver_id)
 );
 
@@ -70,6 +76,8 @@ CREATE TABLE organization
     moto VARCHAR(255),
     ngo_certificate_url VARCHAR(512),
     rep_nid_url VARCHAR(512),
+    is_approved ENUM('PENDING','APPROVED','REJECTED') DEFAULT 'PENDING',
+    rejection_reason VARCHAR(255) NULL,
     PRIMARY KEY(org_id)
 );
 
@@ -304,9 +312,10 @@ CREATE TABLE messages
     sender_id INT NOT NULL,
     sender_role ENUM('Driver','User') NOT NULL,
     contents VARCHAR(300) NOT NULL,
+    is_read BOOLEAN DEFAULT FALSE,
     timestamp_message TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(order_id) REFERENCES orders(order_id) ON DELETE CASCADE
-)
+);
 
 -- 22. Driver assignment logs table
 CREATE TABLE driver_assignment_logs
@@ -343,6 +352,26 @@ CREATE TABLE password_reset_tokens (
     expires_at TIMESTAMP NOT NULL,
     used BOOLEAN DEFAULT FALSE,
     FOREIGN KEY (user_id) REFERENCES user(user_id) ON DELETE CASCADE
+);
+
+-- 25. Admin table
+CREATE TABLE admin (
+    admin_id INT AUTO_INCREMENT PRIMARY KEY,
+    email_address VARCHAR(60) UNIQUE NOT NULL,
+    password VARCHAR(60) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 26. Admin action audit log
+CREATE TABLE admin_audit_log (
+    log_id INT AUTO_INCREMENT PRIMARY KEY,
+    admin_id INT NOT NULL,
+    action VARCHAR(50) NOT NULL,
+    target_type VARCHAR(30) NOT NULL,
+    target_id VARCHAR(50) NOT NULL,
+    reason VARCHAR(255) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(admin_id) REFERENCES admin(admin_id) ON DELETE CASCADE
 );
 
 -- Triggers
@@ -658,3 +687,16 @@ BEGIN
 END$$
 
 DELIMITER ;
+
+-- View
+-- 1. All pending approvals in one place for admin
+CREATE OR REPLACE VIEW vw_pending_approvals AS 
+    SELECT 'DRIVER' AS entity, driver_id AS id, user_name AS name, email_address AS email, join_date AS created_at
+    FROM driver WHERE is_approved = 'PENDING'
+    UNION ALL
+    SELECT 'ORGANIZATION' AS entity, org_id AS id, org_name AS name, email_address AS email, NULL AS created_at
+    FROM organization WHERE is_approved = 'PENDING'
+    UNION ALL
+    SELECT 'RESTAURANT' AS entity, restaurant_id AS id, res_name AS name, email_address AS email, NULL AS created_at
+    FROM restaurant WHERE is_approved = 'PENDING';
+

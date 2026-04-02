@@ -5,6 +5,7 @@ import db from '../db.js'
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import { upload, uploadToCloudinary } from '../utils/cloudinary.js';
+import { notifyRole } from '../services/notificationService.js';
 
 
 
@@ -50,6 +51,14 @@ router.post('/driver/signup', upload.single('verificationDoc'), async (req, res)
         const insertDriver = `INSERT INTO driver(user_name,email_address,password,verification_method,phone_number,join_date, verification_doc_url) VALUES(?,?,?,?,?,CURDATE(),?)`
         const [result] = await db.execute(insertDriver, [name, email, hashedPassword, verification, contact, verificationDocUrl])
         const token = jwt.sign({ driverId: result.insertId }, process.env.MYSECRETKEY, { expiresIn: '24h' })
+
+        // Notify Admins
+        notifyRole('admin', 'ALL', {
+            event: 'NEW_SIGNUP',
+            entity: 'Driver',
+            name: name
+        });
+
         return res.status(201).json({ token: token, driverId: result.insertId })
     }
 
@@ -72,13 +81,19 @@ router.post('/driver/login', async (req, res) => {
             return res.status(401).json({ message: 'No user corresponding to this information' })
         }
         const driver = result[0];
+
         const doesPasswordMatch = await bcrypt.compare(password, driver.password)
         if (!doesPasswordMatch) {
             return res.status(401).json({ message: 'Incorrect password' })
         }
 
         const token = jwt.sign({ driverId: driver.driver_id }, process.env.MYSECRETKEY, { expiresIn: '24h' })
-        return res.status(200).json({ token, driverId: driver.driver_id })
+        return res.status(200).json({
+            token,
+            driverId: driver.driver_id,
+            is_approved: driver.is_approved,
+            rejection_reason: driver.rejection_reason
+        })
 
     } catch (err) {
         return res.status(503).json({ message: err.message })
@@ -87,7 +102,11 @@ router.post('/driver/login', async (req, res) => {
 })
 
 
-router.post('/restaurant/signup', upload.single('res_image'), async (req, res) => {
+router.post('/restaurant/signup', upload.fields([
+    { name: 'res_image', maxCount: 1 },
+    { name: 'trade_license', maxCount: 1 },
+    { name: 'tin_certificate', maxCount: 1 }
+]), async (req, res) => {
 
     const {
         name,
@@ -107,8 +126,19 @@ router.post('/restaurant/signup', upload.single('res_image'), async (req, res) =
 
     try {
         let resimagepath = null;
-        if (req.file) {
-            resimagepath = await uploadToCloudinary(req.file.buffer, "purrito/restaurants");
+        let tradeLicenseUrl = null;
+        let tinCertificateUrl = null;
+
+        if (req.files?.['res_image']) {
+            resimagepath = await uploadToCloudinary(req.files['res_image'][0].buffer, "purrito/restaurants/photos");
+        }
+        if (req.files?.['trade_license']) {
+            tradeLicenseUrl = await uploadToCloudinary(req.files['trade_license'][0].buffer, "purrito/restaurants/documents");
+        } else {
+            return res.status(400).json({ message: 'Trade License is required for restaurant verification.' });
+        }
+        if (req.files?.['tin_certificate']) {
+            tinCertificateUrl = await uploadToCloudinary(req.files['tin_certificate'][0].buffer, "purrito/restaurants/documents");
         }
 
 
@@ -123,8 +153,8 @@ router.post('/restaurant/signup', upload.single('res_image'), async (req, res) =
 
         const insertRestaurant = `
         INSERT INTO restaurant
-        (res_name,email_address,password,street,city,postal_code,building_name,food_program,res_image_path,description,restaurant_type,lat,lng)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+        (res_name,email_address,password,street,city,postal_code,building_name,food_program,res_image_path,description,restaurant_type,lat,lng, trade_license_url, tin_certificate_url)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         `
 
         const [result] = await db.execute(insertRestaurant, [
@@ -140,8 +170,17 @@ router.post('/restaurant/signup', upload.single('res_image'), async (req, res) =
             description ?? null,
             restauranttype ?? null,
             lat,
-            lng
+            lng,
+            tradeLicenseUrl,
+            tinCertificateUrl
         ])
+
+        // Notify Admins
+        notifyRole('admin', 'ALL', {
+            event: 'NEW_SIGNUP',
+            entity: 'Restaurant',
+            name: name
+        });
 
         const token = jwt.sign(
             { restaurantId: result.insertId },
@@ -174,13 +213,19 @@ router.post('/restaurant/login', async (req, res) => {
             return res.status(401).json({ message: 'No user corresponding to this information' })
         }
         const restaurant = result[0];
+
         const doesPasswordMatch = await bcrypt.compare(password, restaurant.password)
         if (!doesPasswordMatch) {
             return res.status(401).json({ message: 'Incorrect password' })
         }
 
         const token = jwt.sign({ restaurantId: restaurant.restaurant_id }, process.env.MYSECRETKEY, { expiresIn: '24h' })
-        return res.status(200).json({ token, restaurantId: restaurant.restaurant_id })
+        return res.status(200).json({
+            token,
+            restaurantId: restaurant.restaurant_id,
+            is_approved: restaurant.is_approved,
+            rejection_reason: restaurant.rejection_reason
+        })
 
     } catch (err) {
         return res.status(503).json({ message: err.message })
@@ -304,6 +349,14 @@ router.post('/organization/signup', upload.fields([
         const [result] = await db.execute(insertOrganization, [name, email, hashedPassword, street, city, postalcode, buildingname, lat, lng, moto || null, contact_number || null, ngo_certificate_url, rep_nid_url])
         console.log(result.insertId)
         const token = jwt.sign({ orgId: result.insertId }, process.env.MYSECRETKEY, { expiresIn: '24h' })
+
+        // Notify Admins
+        notifyRole('admin', 'ALL', {
+            event: 'NEW_SIGNUP',
+            entity: 'Organization',
+            name: name
+        });
+
         return res.status(201).json({ token: token, orgId: result.insertId })
     }
     catch (err) {
@@ -323,13 +376,19 @@ router.post('/organization/login', async (req, res) => {
             return res.status(401).json({ message: 'No user corresponding to this information' })
         }
         const organization = result[0];
+
         const doesPasswordMatch = await bcrypt.compare(password, organization.password)
         if (!doesPasswordMatch) {
             return res.status(401).json({ message: 'Incorrect password' })
         }
 
         const token = jwt.sign({ orgId: organization.org_id }, process.env.MYSECRETKEY, { expiresIn: '24h' })
-        return res.status(200).json({ token, orgId: organization.org_id })
+        return res.status(200).json({
+            token,
+            orgId: organization.org_id,
+            is_approved: organization.is_approved,
+            rejection_reason: organization.rejection_reason
+        })
 
     } catch (err) {
         return res.status(503).json({ message: err.message })

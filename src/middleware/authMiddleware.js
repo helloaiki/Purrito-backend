@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
+import db from '../db.js';
 
-function authMiddleWare(req, res, next) {
+async function authMiddleWare(req, res, next) {
     const authHeader = req.headers['authorization'];
 
     if (!authHeader) {
@@ -11,15 +12,13 @@ function authMiddleWare(req, res, next) {
         ? authHeader.slice(7)
         : authHeader;
 
-
     if (!token) {
         return res.status(401).json({ message: 'No token provided' })
     }
 
-    jwt.verify(token, process.env.MYSECRETKEY, (err, decoded) => {
-        if (err) {
-            return res.status(401).json({ message: 'Invalid token' })
-        }
+    try {
+        const decoded = jwt.verify(token, process.env.MYSECRETKEY);
+        
         if (decoded.userId) {
             req.userId = decoded.userId;
             req.role = 'user';
@@ -27,20 +26,30 @@ function authMiddleWare(req, res, next) {
         else if (decoded.restaurantId) {
             req.userId = decoded.restaurantId;
             req.role = 'restaurant';
+            
         }
         else if (decoded.driverId) {
             req.userId = decoded.driverId;
             req.role = 'driver';
+
         }
         else if (decoded.orgId) {
             req.userId = decoded.orgId;
             req.role = 'org';
+
+        }
+        else if (decoded.adminId) {
+            req.userId = decoded.adminId;
+            req.role = 'admin';
         }
         else {
             return res.status(401).json({ message: 'Invalid token payload' });
         }
-        next()
-    })
+        
+        next();
+    } catch (err) {
+        return res.status(401).json({ message: 'Invalid or expired token' });
+    }
 }
 
 export default authMiddleWare;

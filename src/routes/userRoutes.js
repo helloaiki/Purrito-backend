@@ -1,7 +1,7 @@
 import express from 'express'
 import db from '../db.js'
 import authMiddleWare from '../middleware/authMiddleware.js'
-import { notifyRole } from '../server.js'
+import { notifyRole } from '../services/notificationService.js'
 import bcrypt from 'bcryptjs';
 const router = express.Router()
 

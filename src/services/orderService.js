@@ -31,8 +31,18 @@ async function saveMessage(message)
         sender_id,
         sender_role,
         contents,
+        is_read: false,
         timestamp_message: new Date()
     }
 }
 
-export {getOrder,saveMessage}
+async function markMessagesAsRead(orderId, readerRole) {
+    const targetRole = readerRole === 'User' ? 'Driver' : 'User';
+    await db.execute(`
+        UPDATE messages 
+        SET is_read = TRUE 
+        WHERE order_id = ? AND sender_role = ? AND is_read = FALSE
+    `, [orderId, targetRole]);
+}
+
+export {getOrder,saveMessage, markMessagesAsRead}

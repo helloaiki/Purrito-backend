@@ -1,7 +1,7 @@
 import express from 'express'
 import db from '../db.js'
 import authMiddleWare from '../middleware/authMiddleware.js'
-import { notifyRole } from '../server.js'
+import { notifyRole } from '../services/notificationService.js'
 import { startDriverSearch } from '../utils/fulfillment.js'
 import { upload, uploadToCloudinary } from '../utils/cloudinary.js'
 
@@ -18,7 +18,8 @@ router.get('/profile', authMiddleWare, async (req, res) => {
     try {
         const getRes = `
             SELECT restaurant_id, res_name, email_address, street, city, postal_code, 
-            building_name, food_program, res_image_path, description, restaurant_type 
+            building_name, food_program, res_image_path, description, restaurant_type,
+            is_approved, rejection_reason
             FROM restaurant WHERE restaurant_id = ?`;
         const [restaurant] = await db.execute(getRes, [resId]);
         if (restaurant.length === 0) {

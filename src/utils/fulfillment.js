@@ -1,5 +1,5 @@
 import db from '../db.js';
-import { notifyRole } from '../server.js';
+import { notifyRole } from '../services/notificationService.js';
 
 // Distance between 2 points in km (Haversine formula)
 function getDistance(lat1, lon1, lat2, lon2) {
@@ -33,11 +33,11 @@ export async function startDriverSearch(orderId) {
 export async function findNextDriver(orderId) {
     try {
         const [orderRows] = await db.execute(
-            'SELECT restaurant_id, search_radius_km, search_start_time, delivery_fee, is_pickup_offered, order_status FROM orders WHERE order_id = ?',
+            'SELECT restaurant_id, search_radius_km, search_start_time, delivery_fee, is_pickup_offered, status FROM orders WHERE order_id = ?',
             [orderId]
         );
         if (orderRows.length === 0) return;
-        const { restaurant_id, search_radius_km, search_start_time, delivery_fee, is_pickup_offered, order_status } = orderRows[0];
+        const { restaurant_id, search_radius_km, search_start_time, delivery_fee, is_pickup_offered, status: order_status } = orderRows[0];
 
         const activeStatuses = ['PLACED', 'WAITING'];
         if (!activeStatuses.includes(order_status)) {
@@ -129,12 +129,12 @@ export async function offerOrderToDriver(orderId, driverId) {
 
 async function checkOfferTimeout(orderId, driverId) {
     const [orderRows] = await db.execute(
-        'SELECT order_status FROM orders WHERE order_id = ?', [orderId]
+        'SELECT status FROM orders WHERE order_id = ?', [orderId]
     );
 
     if (orderRows.length === 0) return;
 
-    const { order_status } = orderRows[0];
+    const { status: order_status } = orderRows[0];
     if (!['PLACED', 'WAITING'].includes(order_status)) return;
 
 

@@ -1,7 +1,7 @@
 import express from 'express'
 import db from '../db.js'
 import authMiddleWare from '../middleware/authMiddleware.js'
-import { notifyRole } from '../server.js'
+import { notifyRole } from '../services/notificationService.js'
 
 const router = express.Router()
 
@@ -24,7 +24,8 @@ router.get('/profile', authMiddleWare, async (req, res) => {
     const orgId = req.userId;
     try {
         const getRes = `
-            SELECT org_id, org_name, email_address, street, city, postal_code, building_name, contact_number, moto, ngo_certificate_url, rep_nid_url 
+            SELECT org_id, org_name, email_address, street, city, postal_code, building_name, contact_number, moto, ngo_certificate_url, rep_nid_url,
+                   is_approved, rejection_reason
             FROM organization WHERE org_id = ?`;
         const [organization] = await db.execute(getRes, [orgId]);
         if (organization.length === 0) {

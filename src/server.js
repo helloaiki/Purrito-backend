@@ -8,11 +8,14 @@ import userRoutes from './routes/userRoutes.js'
 import organizationRoutes from './routes/organizationRoutes.js'
 import notificationRoutes from './routes/notificationRoutes.js'
 import messageRoutes from './routes/messageRoutes.js'
+import adminRoutes from './routes/adminRoutes.js'
+import createAdmin from './utils/createAdmin.js'
 import WebSocket, { WebSocketServer } from 'ws'
 import { createClient } from 'redis'
 import cors from 'cors';
 import { Server as IOServer } from 'socket.io'
 import http from "http"
+import { roleClients, orderClients, notifyRole } from './services/notificationService.js'
 
 const app = express()
 
@@ -26,15 +29,6 @@ const io = new IOServer(server, {
 
 import initChatSocket from './socket/chatSocket.js'
 initChatSocket(io)
-
-// Global in-memory storage for WebSocket clients
-export const orderClients = {} // { orderId: Set of ws }
-export const roleClients = {   // { role: { id: Set of ws } }
-    user: {},
-    driver: {},
-    restaurant: {},
-    organization: {}
-}
 
 app.use((req, res, next) => {
     console.log(`${req.method} ${req.url}`);
@@ -108,17 +102,6 @@ wss.on('connection', (ws) => {
     });
 });
 
-export const notifyRole = (role, id, data) => {
-    const key = String(id);
-    if (roleClients[role] && roleClients[role][key]) {
-        const payload = JSON.stringify({ type: 'NOTIFICATION', ...data });
-        roleClients[role][key].forEach(ws => {
-            if (ws.readyState === WebSocket.OPEN) {
-                ws.send(payload);
-            }
-        });
-    }
-}
 
 console.log('Websocket server running on port 8008')
 
@@ -134,9 +117,17 @@ app.use('/api/organization', organizationRoutes)
 app.use('/driver', driverRoutes)
 app.use('/api/notifications', notificationRoutes)
 app.use('/api/messages', messageRoutes)
+app.use('/api/admin', adminRoutes)
 
 app.use(express.static(path.join(__dirname, '../public')))
 
-server.listen(PORT, () => {
-    console.log(`server has started on port: ${PORT}`);
-})
+createAdmin()
+    .then(() => {
+        server.listen(PORT, () => {
+            console.log(`server has started on port: ${PORT}`);
+        });
+    })
+    .catch((err) => {
+        console.error('Failed to create admin:', err.message);
+        process.exit(1);
+    });
