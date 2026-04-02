@@ -1,7 +1,6 @@
-CREATE DATABASE purrito;
-USE purrito;
+-- USE purrito;
 
---User
+-- 1. User
 CREATE TABLE user
 (
     user_id INT AUTO_INCREMENT,
@@ -17,7 +16,7 @@ CREATE TABLE user
     PRIMARY KEY(user_id)
 );
 
--- Restaurant
+-- 2. Restaurant
 CREATE TABLE restaurant
 (
     restaurant_id INT AUTO_INCREMENT,
@@ -37,7 +36,7 @@ CREATE TABLE restaurant
     PRIMARY KEY(restaurant_id)
 );
 
--- Driver
+-- 3. Driver
 CREATE TABLE driver
 (
     driver_id INT AUTO_INCREMENT,
@@ -54,7 +53,7 @@ CREATE TABLE driver
     PRIMARY KEY(driver_id)
 );
 
--- Organization
+-- 4. Organization
 CREATE TABLE organization
 (
     org_id INT AUTO_INCREMENT,
@@ -74,7 +73,7 @@ CREATE TABLE organization
     PRIMARY KEY(org_id)
 );
 
--- Restaurant Contact
+-- 5. Restaurant Contact
 CREATE TABLE contact_restaurant
 (
     res_id INT,
@@ -83,8 +82,7 @@ CREATE TABLE contact_restaurant
     FOREIGN KEY(res_id) REFERENCES restaurant(restaurant_id) ON DELETE CASCADE
 );
 
--- Menu Table
---change made - Discount doesnt make sense here in the menu table
+-- 6. Menu Table
 CREATE TABLE Restaurant_Menu
 (
     res_id INT,
@@ -99,7 +97,7 @@ CREATE TABLE Restaurant_Menu
     FOREIGN KEY(res_id) REFERENCES restaurant(restaurant_id) ON DELETE CASCADE
 );
 
--- User's characteristic table
+-- 7. User's characteristic table
 CREATE TABLE character_user
 (
     user_id INT,
@@ -108,7 +106,7 @@ CREATE TABLE character_user
     FOREIGN KEY(user_id) REFERENCES user(user_id) ON DELETE CASCADE
 );
 
--- Food characteristics
+-- 8. Food characteristics
 CREATE TABLE food_characteristic
 (
     res_id INT,
@@ -119,7 +117,7 @@ CREATE TABLE food_characteristic
     FOREIGN KEY(food_id) REFERENCES Restaurant_Menu(food_id) ON DELETE CASCADE
 );
 
--- Order table between restaurant and user
+-- 9. Order table between restaurant and user
 CREATE TABLE orders
 (
     order_id INT AUTO_INCREMENT,
@@ -148,7 +146,7 @@ CREATE TABLE orders
     FOREIGN KEY(driver_id) REFERENCES driver(driver_id) ON DELETE SET NULL
 );
 
--- Ordered items table
+-- 10. Ordered items table
 CREATE TABLE order_item
 (
     order_id INT,
@@ -159,7 +157,7 @@ CREATE TABLE order_item
     FOREIGN KEY(food_id)  REFERENCES Restaurant_Menu(food_id) ON DELETE CASCADE
 );
 
--- Restaurant income table
+-- 11. Restaurant income table
 CREATE TABLE restaurant_income
 (
     order_id INT,
@@ -172,7 +170,7 @@ CREATE TABLE restaurant_income
     FOREIGN KEY(restaurant_id) REFERENCES restaurant(restaurant_id) ON DELETE CASCADE
 );
 
--- Driver income table
+-- 12. Driver income table
 CREATE TABLE driver_income
 (
     order_id INT,
@@ -185,7 +183,7 @@ CREATE TABLE driver_income
     FOREIGN KEY(driver_id) REFERENCES driver(driver_id) ON DELETE CASCADE
 );
 
--- Rating for restaurant for particular order
+-- 13. Rating for restaurant for particular order
 CREATE TABLE rating_restaurant
 (
     user_id INT,
@@ -199,7 +197,7 @@ CREATE TABLE rating_restaurant
     FOREIGN KEY(order_id) REFERENCES orders(order_id) ON DELETE CASCADE
 );
 
--- Rating for driver
+-- 14. Rating for driver
 CREATE TABLE rating_driver
 (
     order_id INT,
@@ -212,7 +210,7 @@ CREATE TABLE rating_driver
     FOREIGN KEY(user_id) REFERENCES user(user_id) ON DELETE SET NULL
 );
 
--- Table for restaurants to host their leftovers
+-- 15. Table for restaurants to host their leftovers
 CREATE TABLE leftover_available
 (
     leftover_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -230,8 +228,7 @@ CREATE TABLE leftover_available
     FOREIGN KEY(org_id) REFERENCES organization(org_id) ON DELETE CASCADE
 );
 
---table for restaurant issued coupons
-USE purrito;
+-- 16. Table for restaurant issued coupons
 CREATE TABLE food_item_coupon
 (
     coupon_id INT AUTO_INCREMENT,
@@ -244,8 +241,7 @@ CREATE TABLE food_item_coupon
     FOREIGN KEY(restaurant_id) REFERENCES restaurant(restaurant_id)
 );
 
---table for actually assigning coupons to food items
-USE PURRITO;
+-- 17. Table for actually assigning coupons to food items
 CREATE TABLE couponed_items
 (
     food_id INT,
@@ -259,7 +255,7 @@ CREATE TABLE couponed_items
 );
 
 
---Table for coupons given by website
+-- 18. Table for coupons given by website
 CREATE TABLE coupon (
     coupon_code VARCHAR(20) PRIMARY KEY,
     discount_percent DECIMAL(5,2) NOT NULL,
@@ -268,7 +264,7 @@ CREATE TABLE coupon (
     is_active BOOLEAN DEFAULT 1
 );
 
--- Payment credentials
+-- 19. Payment credentials
 CREATE TABLE payment_credentials
 (
     user_id INT,
@@ -278,7 +274,7 @@ CREATE TABLE payment_credentials
     FOREIGN KEY(user_id) REFERENCES user(user_id) ON DELETE CASCADE
 );
 
--- Notification table
+-- 20. Notification table
 CREATE TABLE notifications
 (
     notif_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -299,7 +295,7 @@ CREATE TABLE notifications
     FOREIGN KEY(org_id) REFERENCES organization(org_id) ON DELETE CASCADE
 );
 
--- Driver assignment logs table
+-- 21. Driver assignment logs table
 CREATE TABLE driver_assignment_logs
 (
     log_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -312,7 +308,7 @@ CREATE TABLE driver_assignment_logs
     FOREIGN KEY(driver_id) REFERENCES driver(driver_id) ON DELETE CASCADE
 );
 
--- Table for recording organization's distributed food
+-- 22. Table for recording organization's distributed food
 CREATE TABLE distributed_food (
     dist_id INT AUTO_INCREMENT PRIMARY KEY,
     org_id INT,
@@ -327,7 +323,7 @@ CREATE TABLE distributed_food (
     FOREIGN KEY(org_id) REFERENCES organization(org_id) ON DELETE CASCADE
 );
 
---Tokens needed for password reset
+-- 23. Tokens needed for password reset
 CREATE TABLE password_reset_tokens (
     token VARCHAR(64) PRIMARY KEY,
     user_id INT NOT NULL,
@@ -426,7 +422,7 @@ BEGIN
     IF OLD.driver_id IS NULL AND NEW.driver_id IS NOT NULL THEN
         INSERT INTO notifications (driver_id, role, title, message, type) VALUES (NEW.driver_id, 'driver', 'Order Assigned', CONCAT('You have been assiged to order #',NEW.order_id,'.'), 'DRIVER_ASSIGNED');
     END IF;
-END$$;
+END$$
 
 DELIMITER ;
 
@@ -458,7 +454,7 @@ END $$
 
 DELIMITER ;
 
---3. Event for marking accepted leftovers as collected if not picked up every 15 minutes
+-- 3. Event for marking accepted leftovers as collected if not picked up every 15 minutes
 DELIMITER $$
 
 CREATE EVENT mark_collected_leftovers
@@ -477,7 +473,7 @@ DELIMITER $$
 
 CREATE FUNCTION GetDriverAverageRating(p_driver_id INT)
 RETURNS DECIMAL(3,1)
-DETERMINISTIC
+NOT DETERMINISTIC
 READS SQL DATA
 BEGIN 
     DECLARE avg_rating DECIMAL(3,1);
@@ -495,7 +491,7 @@ DELIMITER $$
 
 CREATE FUNCTION GetRestaurantAverageRating(p_res_id INT)
 RETURNS DECIMAL(3,1)
-DETERMINISTIC
+NOT DETERMINISTIC
 READS SQL DATA
 BEGIN 
     DECLARE avg_rating DECIMAL(3,1);

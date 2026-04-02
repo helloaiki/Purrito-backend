@@ -77,22 +77,31 @@ router.put('/change-password', authMiddleWare, async (req, res) => {
     }
 })
 
-//Menu Routes
+// Menu Routes
 // GET /api/user/menu
 router.get('/menu', async (req, res) => {
     try {
         const [menuItems] = await db.execute(`
                 SELECT rm.food_id, rm.res_id, rm.name, rm.course_name,
                     rm.price, rm.food_image_path, rm.is_available,
-                    rm.quantity_sold, rm.discount_percent,
+                    rm.quantity_sold, 
+                    fic.discount_type, fic.discount_value,
                     r.res_name, r.restaurant_type, r.city,
-                    (SELECT IFNULL(ROUND(AVG(rating), 1), 4.5) FROM rating_restaurant WHERE res_id = r.restaurant_id) AS rating
+                    (SELECT IFNULL(ROUND(AVG(rating), 1), 4.5) FROM rating_restaurant WHERE res_id = r.restaurant_id) AS rating,
+                    (SELECT GROUP_CONCAT(trait) FROM food_characteristic WHERE food_id = rm.food_id) AS traits
                 FROM Restaurant_Menu rm
                 JOIN restaurant r ON rm.res_id = r.restaurant_id
+                LEFT JOIN couponed_items ci ON ci.food_id = rm.food_id AND ci.is_active = 1 AND ci.expires_on >= NOW()
+                LEFT JOIN food_item_coupon fic ON fic.coupon_id = ci.coupon_id
                 WHERE rm.is_available = 1
                 ORDER BY rm.quantity_sold DESC
             `)
-        res.status(200).json(menuItems)
+        
+        const formatted = menuItems.map(item => ({
+            ...item,
+            traits: item.traits ? item.traits.split(',') : []
+        }));
+        res.status(200).json(formatted)
     } catch (err) {
         console.error(err)
         res.status(500).json({ message: 'Error fetching menu' })
@@ -105,16 +114,24 @@ router.get('/menu/trending', async (req, res) => {
         const getTrendMenu = `
             SELECT rm.food_id, rm.res_id, rm.name, rm.course_name,
                 rm.price, rm.food_image_path, rm.quantity_sold,
+                fic.discount_type, fic.discount_value,
                 r.res_name,
-                (SELECT IFNULL(ROUND(AVG(rating), 1), 4.5) FROM rating_restaurant WHERE res_id = r.restaurant_id) AS rating
+                (SELECT IFNULL(ROUND(AVG(rating), 1), 4.5) FROM rating_restaurant WHERE res_id = r.restaurant_id) AS rating,
+                (SELECT GROUP_CONCAT(trait) FROM food_characteristic WHERE food_id = rm.food_id) AS traits
             FROM Restaurant_Menu rm
             JOIN restaurant r ON rm.res_id = r.restaurant_id
+            LEFT JOIN couponed_items ci ON ci.food_id = rm.food_id AND ci.is_active = 1 AND ci.expires_on >= NOW()
+            LEFT JOIN food_item_coupon fic ON fic.coupon_id = ci.coupon_id
             WHERE rm.is_available = 1
             ORDER BY rm.quantity_sold DESC
             LIMIT 10
         `;
         const [rows] = await db.execute(getTrendMenu);
-        res.status(200).json(rows);
+        const formatted = rows.map(item => ({
+            ...item,
+            traits: item.traits ? item.traits.split(',') : []
+        }));
+        res.status(200).json(formatted);
     } catch (err) {
         console.error(err)
         res.status(500).json({ message: 'Error fetching trending menu' })
@@ -126,17 +143,26 @@ router.get('/menu/offers', async (req, res) => {
     try {
         const getOfferMenu = `
             SELECT rm.food_id, rm.res_id, rm.name, rm.course_name,
-                rm.price, rm.food_image_path, rm.discount_percent,
+                rm.price, rm.food_image_path, 
+                fic.discount_type, fic.discount_value,
                 r.res_name,
-                (SELECT IFNULL(ROUND(AVG(rating), 1), 4.5) FROM rating_restaurant WHERE res_id = r.restaurant_id) AS rating
+                (SELECT IFNULL(ROUND(AVG(rating), 1), 4.5) FROM rating_restaurant WHERE res_id = r.restaurant_id) AS rating,
+                (SELECT GROUP_CONCAT(trait) FROM food_characteristic WHERE food_id = rm.food_id) AS traits
             FROM Restaurant_Menu rm
             JOIN restaurant r ON rm.res_id = r.restaurant_id
-            WHERE rm.discount_percent > 0 AND rm.is_available = 1
-            ORDER BY rm.discount_percent DESC
+            JOIN couponed_items ci ON ci.food_id = rm.food_id
+            JOIN food_item_coupon fic ON fic.coupon_id = ci.coupon_id
+            WHERE fic.discount_value > 0 AND rm.is_available = 1 
+                AND ci.is_active = 1 AND ci.expires_on >= NOW()
+            ORDER BY fic.discount_value DESC
             LIMIT 10
         `;
         const [rows] = await db.execute(getOfferMenu);
-        res.status(200).json(rows);
+        const formatted = rows.map(item => ({
+            ...item,
+            traits: item.traits ? item.traits.split(',') : []
+        }));
+        res.status(200).json(formatted);
     } catch (err) {
         console.error(err)
         res.status(500).json({ message: 'Error fetching offers' })
@@ -182,18 +208,27 @@ router.get('/menu/:food_id', async (req, res) => {
         const [rows] = await db.execute(`
                 SELECT rm.food_id, rm.res_id, rm.name, rm.course_name,
                    rm.price, rm.food_image_path, rm.is_available,
+                   fic.discount_type, fic.discount_value,
                    r.res_name, r.restaurant_type, r.building_name, r.street, r.city, r.email_address,
                    r.description AS res_description,
                    (SELECT IFNULL(ROUND(AVG(rating), 1), 4.5) FROM rating_restaurant WHERE res_id = r.restaurant_id) AS rating,
-                   (SELECT phone_number FROM contact_restaurant WHERE res_id = r.restaurant_id LIMIT 1) AS phone_number
+                   (SELECT phone_number FROM contact_restaurant WHERE res_id = r.restaurant_id LIMIT 1) AS phone_number,
+                   (SELECT GROUP_CONCAT(trait) FROM food_characteristic WHERE food_id = rm.food_id) AS traits
                 FROM Restaurant_Menu rm
                 JOIN restaurant r ON rm.res_id = r.restaurant_id
+                LEFT JOIN couponed_items ci ON ci.food_id = rm.food_id AND ci.is_active = 1 AND ci.expires_on >= NOW()
+                LEFT JOIN food_item_coupon fic ON fic.coupon_id = ci.coupon_id
                 WHERE rm.food_id=?
                     AND rm.is_available = 1
             `, [food_id]);
 
         if (rows.length === 0) return res.status(404).json({ message: 'Food item not found' });
-        res.status(200).json(rows);
+        
+        const formatted = {
+            ...rows[0],
+            traits: rows[0].traits ? rows[0].traits.split(',') : []
+        };
+        res.status(200).json(formatted);
     } catch (err) {
         console.error(err)
         res.status(500).json({ message: 'Error fetching food item' })
@@ -208,7 +243,8 @@ router.get('/menu/restaurant/:res_id', async (req, res) => {
                 SELECT rm.food_id, rm.res_id, rm.name, rm.course_name,
                    rm.price, rm.food_image_path,
                    r.res_name, r.res_image_path AS restaurant_image, r.city, r.street,
-                   (SELECT IFNULL(ROUND(AVG(rating), 1), 4.5) FROM rating_restaurant WHERE res_id = r.restaurant_id) AS rating
+                   (SELECT IFNULL(ROUND(AVG(rating), 1), 4.5) FROM rating_restaurant WHERE res_id = r.restaurant_id) AS rating,
+                   (SELECT GROUP_CONCAT(trait) FROM food_characteristic WHERE food_id = rm.food_id) AS traits
                 FROM Restaurant_Menu rm
                 JOIN restaurant r ON rm.res_id = r.restaurant_id
                 WHERE rm.res_id=?
@@ -216,7 +252,12 @@ router.get('/menu/restaurant/:res_id', async (req, res) => {
                 ORDER BY rm.quantity_sold DESC
                 LIMIT 12
             `, [res_id]);
-        res.status(200).json(rows);
+        
+        const formatted = rows.map(item => ({
+            ...item,
+            traits: item.traits ? item.traits.split(',') : []
+        }));
+        res.status(200).json(formatted);
     } catch (err) {
         console.error(err)
         res.status(500).json({ message: 'Error fetching restaurant menu' })
@@ -487,9 +528,12 @@ router.get('/orders/:order_id', authMiddleWare, async (req, res) => {
         if (orders.length === 0) return res.status(404).json({ message: 'Order not found' });
 
         const [items] = await db.execute(`
-            SELECT oi.food_id, oi.quantity, rm.name, rm.price, rm.food_image_path
+            SELECT oi.food_id, oi.quantity, rm.name, rm.price, rm.food_image_path,
+                   fic.discount_type, fic.discount_value
             FROM order_item oi
             JOIN Restaurant_Menu rm ON oi.food_id = rm.food_id
+            LEFT JOIN couponed_items ci ON ci.food_id = rm.food_id AND ci.is_active = 1
+            LEFT JOIN food_item_coupon fic ON fic.coupon_id = ci.coupon_id
             WHERE oi.order_id = ?
         `, [order_id]);
 
