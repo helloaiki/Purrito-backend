@@ -33,10 +33,10 @@ CREATE TABLE restaurant
     res_image_path VARCHAR(512),
     description VARCHAR(100),
     restaurant_type VARCHAR(50),
-    trade_license_url VARCHAR(512) NULL,
-    tin_certificate_url VARCHAR(512) NULL,
-    is_approved ENUM('PENDING','APPROVED','REJECTED') DEFAULT 'PENDING',
-    rejection_reason VARCHAR(255) NULL,
+    trade_license_url VARCHAR(512) NULL, -- new added
+    tin_certificate_url VARCHAR(512) NULL, -- new added
+    is_approved ENUM('PENDING','APPROVED','REJECTED') DEFAULT 'PENDING', -- new added
+    rejection_reason VARCHAR(255) NULL, -- new added
     PRIMARY KEY(restaurant_id)
 );
 
@@ -54,8 +54,8 @@ CREATE TABLE driver
     lng DECIMAL(11,8) NULL,
     last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     verification_doc_url VARCHAR(512) NULL,
-    is_approved ENUM('PENDING','APPROVED','REJECTED') DEFAULT 'PENDING',
-    rejection_reason VARCHAR(255) NULL,
+    is_approved ENUM('PENDING','APPROVED','REJECTED') DEFAULT 'PENDING', -- new added
+    rejection_reason VARCHAR(255) NULL, -- new added
     PRIMARY KEY(driver_id)
 );
 
@@ -76,8 +76,8 @@ CREATE TABLE organization
     moto VARCHAR(255),
     ngo_certificate_url VARCHAR(512),
     rep_nid_url VARCHAR(512),
-    is_approved ENUM('PENDING','APPROVED','REJECTED') DEFAULT 'PENDING',
-    rejection_reason VARCHAR(255) NULL,
+    is_approved ENUM('PENDING','APPROVED','REJECTED') DEFAULT 'PENDING', -- new added
+    rejection_reason VARCHAR(255) NULL, -- new added
     PRIMARY KEY(org_id)
 );
 
@@ -354,7 +354,7 @@ CREATE TABLE password_reset_tokens (
     FOREIGN KEY (user_id) REFERENCES user(user_id) ON DELETE CASCADE
 );
 
--- 25. Admin table
+-- 25. Admin table ----- new added
 CREATE TABLE admin (
     admin_id INT AUTO_INCREMENT PRIMARY KEY,
     email_address VARCHAR(60) UNIQUE NOT NULL,
@@ -362,7 +362,7 @@ CREATE TABLE admin (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 26. Admin action audit log
+-- 26. Admin action audit log ----- new added
 CREATE TABLE admin_audit_log (
     log_id INT AUTO_INCREMENT PRIMARY KEY,
     admin_id INT NOT NULL,
@@ -689,7 +689,7 @@ END$$
 DELIMITER ;
 
 -- View
--- 1. All pending approvals in one place for admin
+-- 1. All pending approvals in one place for admin ----- new added
 CREATE OR REPLACE VIEW vw_pending_approvals AS 
     SELECT 'DRIVER' AS entity, driver_id AS id, user_name AS name, email_address AS email, join_date AS created_at
     FROM driver WHERE is_approved = 'PENDING'
