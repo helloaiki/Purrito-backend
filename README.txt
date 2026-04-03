@@ -5,18 +5,18 @@ The steps for setup/run:
 --Some variables are already provided as they are being hosted on outer sites
 
 --FOR BACKEND : 
-MYSECRETKEY="This is a secret key"
+MYSECRETKEY=
 PORT=5003
 MYPASSWORD=
-CLOUDINARY_CLOUD_NAME=dxcjk9qhl
-CLOUDINARY_API_KEY=283198248637169
-CLOUDINARY_API_SECRET=RvJACbyuAnjDIYrgjPxhCiSVy5M
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
 DB_host='localhost'
 DB_USER='root'
 DB_PASS=
 DB_NAME='purrito'
-EMAIL_USER='purrito.food@gmail.com'
-EMAIL_PASS='yvergqexrlbvjcdf'
+EMAIL_USER=
+EMAIL_PASS=
 
 --FOR FRONTEND
 VITE_API_URL=http://localhost:5003
