@@ -88,12 +88,23 @@ Following these steps can start the website on **localhost**.
 
 ---
 
-## Instructions for Test Data
+## Database Setup & Initialization
 
-Data for testing can be found in the file 2305051_2305053/Purrito/TestData.sql. Load it into your database:
+To initialize the database with all necessary tables and seed data (users, restaurants, drivers, etc.), follow these steps:
+
+1. Create a MySQL database named `purrito`.
+2. Import the following SQL script to set up the core data instances:
 
 ```bash
-2305051_2305053/Purrito/TestData.sql
+Purrito-backend/tableInstances.sql
+```
+
+## Instructions for Test Data
+
+For additional test scenarios, you can load the specific test data script:
+
+```bash
+Purrito-backend/TestData.sql
 ```
 
 This data ensures:
