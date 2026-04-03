@@ -1,6 +1,8 @@
-# Purrito 
+# Purrito - A Food Ordering and Donation Platform
 
-### A Food Ordering and Donation Platform
+## Project Repositories
+- **Backend Hub**: [Purrito-backend](https://github.com/helloaiki/Purrito-backend) (Current)
+- **Frontend Hub**: [Purrito-frontend](https://github.com/helloaiki/Purrito-frontend)
 
 It is a full-stack application for ordering food and managing restaurants, drivers, and local organizations. This README guides you to set up and run the project locally.
 
