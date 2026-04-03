@@ -258,7 +258,7 @@ router.post('/user/signup', async (req, res) => {
             false
         ]);
 
-        const verifyLink = `http://localhost:5173/verify-email?token=${verificationToken}`;
+        const verifyLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${verificationToken}`;
         try {
             await transporter.sendMail({
                 from: `"Purrito" <${process.env.EMAIL_USER}>`,
@@ -449,7 +449,7 @@ router.post('/forgot-password', async (req, res) => {
             [token, user[0].user_id]
         );
 
-        const resetLink = `http://localhost:5173/reset-password?token=${token}`;
+        const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${token}`;
         await transporter.sendMail({
             from: `"Purrito" <${process.env.EMAIL_USER}>`,
             to: email,
