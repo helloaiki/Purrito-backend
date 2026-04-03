@@ -2,7 +2,7 @@
 
 ### A Food Ordering and Donation Platform
 
-A full-stack application for ordering food and managing restaurants, drivers, and local organizations. This README guides you to set up and run the project locally.
+It is a full-stack application for ordering food and managing restaurants, drivers, and local organizations. This README guides you to set up and run the project locally.
 
 ---
 
