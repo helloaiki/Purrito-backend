@@ -33,11 +33,11 @@ export async function startDriverSearch(orderId) {
 export async function findNextDriver(orderId) {
     try {
         const [orderRows] = await db.execute(
-            'SELECT restaurant_id, search_radius_km, search_start_time, delivery_fee, is_pickup_offered, status FROM orders WHERE order_id = ?',
+            'SELECT restaurant_id, search_radius_km, search_start_time, delivery_fee, is_pickup_offered, status, TIMESTAMPDIFF(MINUTE, search_start_time, NOW()) as elapsed_minutes FROM orders WHERE order_id = ?',
             [orderId]
         );
         if (orderRows.length === 0) return;
-        const { restaurant_id, search_radius_km, search_start_time, delivery_fee, is_pickup_offered, status: order_status } = orderRows[0];
+        const { restaurant_id, search_radius_km, search_start_time, delivery_fee, is_pickup_offered, status: order_status, elapsed_minutes } = orderRows[0];
 
         const activeStatuses = ['PLACED', 'WAITING'];
         if (!activeStatuses.includes(order_status)) {
@@ -45,10 +45,7 @@ export async function findNextDriver(orderId) {
             return;
         }
 
-        // Check for 10-minute timeout for fee increase
-        const startTime = new Date(search_start_time).getTime();
-        const now = Date.now();
-        const elapsedMinutes = (now - startTime) / 60000;
+        const elapsedMinutes = elapsed_minutes || 0;
 
         if (elapsedMinutes >= 10 && delivery_fee <= 50.00) {
             console.log(`Fulfillment: 10 mins passed for order ${orderId}. Increasing fee and radius.`);
@@ -114,6 +111,7 @@ export async function offerOrderToDriver(orderId, driverId) {
         );
 
         notifyRole('driver', driverId, {
+            isNotification: true,
             notif_id: res.insertId,
             order_id: orderId,
             title: 'Order Offer',
@@ -154,9 +152,9 @@ async function notifyUserPickup(orderId) {
         const message = "We couldn't find a driver. Would you like to pick up your order from the restaurant instead? You'll save on the delivery fee!";
 
         await db.execute(
-            'INSERT INTO notifications (user_id, role, title, message, type) VALUES (?, "user", ?, ?, "PICKUP_OFFER")',
-            [userId, title, message]
+            'INSERT INTO notifications (user_id, role, title, message, type, order_id) VALUES (?, "user", ?, ?, "PICKUP_OFFER", ?)',
+            [userId, title, message, orderId]
         );
-        notifyRole('user', userId, { title, message, type: 'PICKUP_OFFER', order_id: orderId });
+        notifyRole('user', userId, { isNotification: true, title, message, type: 'PICKUP_OFFER', order_id: orderId });
     }
 }

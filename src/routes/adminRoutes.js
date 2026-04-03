@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import db from '../db.js'
 import authMiddleWare from '../middleware/authMiddleware.js'
+import { notifyRole } from '../services/notificationService.js'
 
 const router = express.Router()
 
@@ -210,6 +211,24 @@ router.put('/drivers/:id/approve', authMiddleWare, adminOnly, async (req, res) =
             'UPDATE driver SET is_approved=?, rejection_reason=? WHERE driver_id=?',
             [action, reason || null, req.params.id]
         )
+
+        // Persist notification
+        const title = action === 'APPROVED' ? 'Application Approved!' : 'Application Rejected';
+        const message = action === 'APPROVED' ? 'You can now start using Purrito.' : `Reason: ${reason}`;
+
+        await db.execute(
+            'INSERT INTO notifications (driver_id, role, title, message, type) VALUES (?, "driver", ?, ?, ?)',
+            [req.params.id, title, message, action]
+        );
+
+        // Notify driver
+        notifyRole('driver', req.params.id, {
+            type: action,
+            title,
+            message,
+            action
+        });
+
         res.json({ message: `Driver ${action.toLowerCase()}` })
     }
     catch (err) {
@@ -228,6 +247,24 @@ router.put('/restaurants/:id/approve', authMiddleWare, adminOnly, async (req, re
             'UPDATE restaurant SET is_approved=?, rejection_reason=? WHERE restaurant_id=?',
             [action, reason || null, req.params.id]
         )
+
+        // Persist notification
+        const title = action === 'APPROVED' ? 'Onboarding Approved!' : 'Onboarding Rejected';
+        const message = action === 'APPROVED' ? 'Welcome to Purrito! You can now list and sell your food items and help the needy.' : `Reason: ${reason}`;
+
+        await db.execute(
+            'INSERT INTO notifications (restaurant_id, role, title, message, type) VALUES (?, "restaurant", ?, ?, ?)',
+            [req.params.id, title, message, action]
+        );
+
+        // Notify restaurant
+        notifyRole('restaurant', req.params.id, {
+            type: action,
+            title,
+            message,
+            action
+        });
+
         res.json({ message: `Restaurant ${action.toLowerCase()}` })
     }
     catch (err) {
@@ -246,6 +283,24 @@ router.put('/organizations/:id/approve', authMiddleWare, adminOnly, async (req, 
             'UPDATE organization SET is_approved=?, rejection_reason=? WHERE org_id=?',
             [action, reason || null, req.params.id]
         )
+
+        // Persist notification
+        const title = action === 'APPROVED' ? 'Organization Approved!' : 'Organization Rejected';
+        const message = action === 'APPROVED' ? 'You can now start claiming leftovers.' : `Reason: ${reason}`;
+
+        await db.execute(
+            'INSERT INTO notifications (org_id, role, title, message, type) VALUES (?, "organization", ?, ?, ?)',
+            [req.params.id, title, message, action]
+        );
+
+        // Notify organization
+        notifyRole('organization', req.params.id, {
+            type: action,
+            title,
+            message,
+            action
+        });
+
         res.json({ message: `Organization ${action.toLowerCase()}` })
     }
     catch (err) {

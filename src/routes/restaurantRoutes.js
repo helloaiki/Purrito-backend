@@ -710,8 +710,8 @@ router.put('/orders/:id/status', authMiddleWare, async (req, res) => {
             : `Great news! Your order #${orderId} has been accepted by the restaurant.`;
 
         const [notif] = await db.execute(
-            'INSERT INTO notifications (user_id, role, title, message, type) VALUES (?, "user", ?, ?, "ORDER_STATUS")',
-            [userId, title, message]
+            'INSERT INTO notifications (user_id, role, title, message, type, order_id) VALUES (?, "user", ?, ?, "ORDER_STATUS", ?)',
+            [userId, title, message, orderId]
         );
 
         notifyRole('user', userId, {

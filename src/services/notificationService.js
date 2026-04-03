@@ -10,7 +10,7 @@ export const roleClients = {   // { role: { id: Set of ws } }
 };
 
 export const notifyRole = (role, id, data) => {
-    const payload = JSON.stringify({ type: 'NOTIFICATION', ...data });
+    const payload = JSON.stringify({ isNotification: true, type: 'NOTIFICATION', ...data });
 
     if (id === 'ALL') {
         if (roleClients[role]) {

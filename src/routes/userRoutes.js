@@ -444,8 +444,8 @@ router.post('/orders', authMiddleWare, async (req, res) => {
         const order_id = outRows[0].order_id;
 
         await conn.execute(
-            'INSERT INTO notifications (restaurant_id, role, title, message, type) VALUES (?,?,?,?,?)',
-            [restaurant_id, 'restaurant', 'New Order', `You have a new order #${order_id}. Please accept or reject it.`, 'NEW_ORDER']
+            'INSERT INTO notifications (restaurant_id, role, title, message, type, order_id) VALUES (?,?,?,?,?,?)',
+            [restaurant_id, 'restaurant', 'New Order', `You have a new order #${order_id}. Please accept or reject it.`, 'NEW_ORDER', order_id]
         )
 
         notifyRole('restaurant', restaurant_id, {
@@ -516,7 +516,7 @@ router.get('/orders/:order_id', authMiddleWare, async (req, res) => {
     try {
         const getOrders = `
             SELECT o.order_id, o.price, o.status, o.delivery_address, o.delivery_lat, o.delivery_lng, o.payment_method,
-               o.rejection_reason, o.created_at, o.driver_id, o.coupon_code, o.discount,
+               o.rejection_reason, o.created_at, o.driver_id, o.coupon_code, o.discount, o.is_pickup_offered,
                r.res_name AS restaurant_name, r.lat AS res_lat, r.lng AS res_lng,
                d.user_name AS driver_name, d.lat AS driver_lat, d.lng AS driver_lng, d.phone_number AS driver_phone
             FROM orders o
