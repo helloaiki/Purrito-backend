@@ -33,10 +33,10 @@ CREATE TABLE restaurant
     res_image_path VARCHAR(512),
     description VARCHAR(100),
     restaurant_type VARCHAR(50),
-    trade_license_url VARCHAR(512) NULL, -- newly added
-    tin_certificate_url VARCHAR(512) NULL, -- newly added
-    is_approved ENUM('PENDING','APPROVED','REJECTED') DEFAULT 'PENDING', -- newly added
-    rejection_reason VARCHAR(255) NULL, -- newly added
+    trade_license_url VARCHAR(512) NULL, 
+    tin_certificate_url VARCHAR(512) NULL, 
+    is_approved ENUM('PENDING','APPROVED','REJECTED') DEFAULT 'PENDING', 
+    rejection_reason VARCHAR(255) NULL, 
     PRIMARY KEY(restaurant_id)
 );
 
@@ -54,8 +54,8 @@ CREATE TABLE driver
     lng DECIMAL(11,8) NULL,
     last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     verification_doc_url VARCHAR(512) NULL,
-    is_approved ENUM('PENDING','APPROVED','REJECTED') DEFAULT 'PENDING', -- newly added
-    rejection_reason VARCHAR(255) NULL, -- newly added
+    is_approved ENUM('PENDING','APPROVED','REJECTED') DEFAULT 'PENDING', 
+    rejection_reason VARCHAR(255) NULL, 
     PRIMARY KEY(driver_id)
 );
 
@@ -76,8 +76,8 @@ CREATE TABLE organization
     moto VARCHAR(255),
     ngo_certificate_url VARCHAR(512),
     rep_nid_url VARCHAR(512),
-    is_approved ENUM('PENDING','APPROVED','REJECTED') DEFAULT 'PENDING', -- newly added
-    rejection_reason VARCHAR(255) NULL, -- newly added
+    is_approved ENUM('PENDING','APPROVED','REJECTED') DEFAULT 'PENDING', 
+    rejection_reason VARCHAR(255) NULL, 
     PRIMARY KEY(org_id)
 );
 
@@ -689,7 +689,7 @@ END$$
 DELIMITER ;
 
 -- View
--- 1. All pending approvals in one place for admin ----- newly added
+-- 1. All pending approvals in one place for admin 
 CREATE OR REPLACE VIEW vw_pending_approvals AS 
     SELECT 'DRIVER' AS entity, driver_id AS id, user_name AS name, email_address AS email, join_date AS created_at
     FROM driver WHERE is_approved = 'PENDING'
