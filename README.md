@@ -40,6 +40,14 @@ EMAIL_USER=
 EMAIL_PASS=
 ```
 
+* To generate email app password, first you have to turn on 2-step verification in your gmail account. Then going to the following link you can generate an app password:
+
+```bash
+https://myaccount.google.com/apppasswords
+```
+
+Then add the email address and generated app password in the EMAIL_USER and EMAIL_PASS field of the .env file respectively.
+
 #### Frontend .env file
 
 ```bash
