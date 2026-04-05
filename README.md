@@ -4,6 +4,25 @@
 - **Backend Hub**: [Purrito-backend](https://github.com/helloaiki/Purrito-backend) (Current)
 - **Frontend Hub**: [Purrito-frontend](https://github.com/helloaiki/Purrito-frontend)
 
+## Project Structure
+
+```text
+Purrito-backend/
+├── src/
+│   ├── middleware/          # Express middlewares (auth, etc.)
+│   ├── routes/              # API route definitions
+│   ├── services/            # Business logic and external services
+│   ├── socket/              # WebSocket logic (chat, etc.)
+│   ├── utils/               # Utilities (Cloudinary, admin creation)
+│   ├── db.js                # Database connection and pool setup
+│   └── server.js            # Main entry point and server configuration
+├── Purrito_Schema.sql       # Database schema
+├── TestData.sql             # SQL script for test data
+├── tableInstances.sql       # Core data instances SQL
+├── .env                     # Environment variables configuration
+└── package.json             # Project dependencies and scripts
+```
+
 It is a full-stack application for ordering food and managing restaurants, drivers, and local organizations. This README guides you to set up and run the project locally.
 
 ---
@@ -32,9 +51,10 @@ ADMIN_PASSWORD=
 CLOUDINARY_CLOUD_NAME=
 CLOUDINARY_API_KEY=
 CLOUDINARY_API_SECRET=
-DB_host='localhost'
+DB_PORT=3306
+DB_HOST='localhost'
 DB_USER='root'
-DB_PASS=
+DB_PASSWORD=
 DB_NAME='purrito'
 EMAIL_USER=
 EMAIL_PASS=
