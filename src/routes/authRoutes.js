@@ -82,7 +82,8 @@ router.post('/driver/login', async (req, res) => {
         }
         const driver = result[0];
 
-        const doesPasswordMatch = await bcrypt.compare(password, driver.password)
+        const doesPasswordMatch 
+        = await bcrypt.compare(password, driver.password)
         if (!doesPasswordMatch) {
             return res.status(401).json({ message: 'Incorrect password' })
         }

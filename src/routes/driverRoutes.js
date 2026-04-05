@@ -406,7 +406,7 @@ router.put('/updateOrderStatus', authMiddleWare, async (req, res) => {
 router.get('/ordersavailable', authMiddleWare, async (req, res) => {
     try {
         const [orders] = await db.execute(`
-            SELECT 
+                SELECT 
                 o.order_id,
                 o.price,
                 o.delivery_address,
